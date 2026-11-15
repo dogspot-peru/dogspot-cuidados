@@ -6,10 +6,11 @@ import {registrationState, migrateRegisteredPets} from '../dogspot-onboarding.mj
 import {webcrypto} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {prepareSavedState, verifyCredential, emailTemplateId, emailFailureReason, storedQueue} from '../dogspot-runtime.mjs';
+import {validDemo,startDemo,advanceDemo} from '../dogspot-care-demo.mjs';
 
 const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('index.html', root), 'utf8');
-const name = html.match(/src="\.\/(index-runtime-[a-f0-9]+\.js)"/)[1];
+const name = html.match(/src="\.\/(index-(?:runtime|care)-[a-f0-9]+\.js)"/)[1];
 const source = readFileSync(new URL(name, root), 'utf8');
 const original = readFileSync(new URL('index-copy-e2117d823cf8.js', root), 'utf8');
 const slice = (start, end, text = source) => {
@@ -31,13 +32,25 @@ await check('stored registration hash accepts only the correct password', async 
   assert.equal(await verifyCredential('Mascota123', null, webcrypto), false);
 });
 
-const aliases = {DogSpotRegistrationState: registrationState, DogSpotMigrateRegisteredPets: migrateRegisteredPets, DogSpotPrepareSavedState: prepareSavedState, DogSpotVerifyCredential: verifyCredential, DogSpotEmailTemplateId: emailTemplateId, DogSpotEmailFailureReason: emailFailureReason, DogSpotStoredQueue: storedQueue};
+const aliases = {DogSpotValidDemo:validDemo,DogSpotRegistrationState: registrationState, DogSpotMigrateRegisteredPets: migrateRegisteredPets, DogSpotPrepareSavedState: prepareSavedState, DogSpotVerifyCredential: verifyCredential, DogSpotEmailTemplateId: emailTemplateId, DogSpotEmailFailureReason: emailFailureReason, DogSpotStoredQueue: storedQueue};
 const common = {crypto: webcrypto, Uint8Array, TextEncoder, URL, AbortController, Intl, setTimeout, clearTimeout, ...aliases};
 const restoreContext = vm.createContext({...common, f: [], m: array => array, Ot: () => [{id: 'meds', label: 'Medicamento', status: 'pendiente'}, {id: 'water', label: 'Agua', status: 'pendiente'}]});
 vm.runInContext(slice('function Ve(', 'var He='), restoreContext);
 const restoration = 'var ' + slice('kt={id:`luna`', 'var Nt=');
 vm.runInContext(restoration, restoreContext);
 const restore = value => {restoreContext.saved = value; return vm.runInContext('Mt(saved)', restoreContext);};
+await check('restoring a multi-day walkthrough preserves its schedule and completed photos',()=>{
+  let state={user:null,exploration:true,pets:[{id:'p',name:'Luna',species:'Perro',meds:'No aplica'}],selectedPetId:'p',currentBookingId:'b',caregiverId:'ana',bookings:[{id:'b',petId:'p',sessions:[{date:'2026-11-20',start:'10:00',end:'12:00'},{date:'2026-11-22',start:'14:00',end:'16:00'}]}],tasks:[],active:{status:'confirmado'},notifications:[],messages:[]};
+  state={...state,...startDemo(state,[{id:'water',label:'Agua'},{id:'rest',label:'Descanso'}],1000)};
+  state={...state,...advanceDemo(state,1001,true)};
+  state={...state,...advanceDemo(state,1002,true)};
+  const restored=restore(JSON.parse(JSON.stringify(state)));
+  assert.equal(restored.tasks.length,4);
+  assert.equal(restored.careDemo.phase,2);
+  assert.equal(restored.tasks[0].status,'completada');
+  assert.equal(restored.tasks[0].evidence,state.tasks[0].evidence);
+  assert.equal(restored.tasks[2].demoStartAt,state.tasks[2].demoStartAt);
+});
 await check('legacy and malformed state restores without discarding valid records', () => {
   const state = restore({user: {id: 'customer', name: 'Cliente', email: 'cliente@example.org'}, pets: [null, {id: 'older-pet', name: 'Luna'}], active: null, tasks: [null], bookings: [null, {id: 'booking-1', petId: 'older-pet'}], notifications: null, serviceSnapshots: {'booking-1': {tasks: null, active: null}}, messages: [null, {from: 'ana', text: 'Conservado'}], authCredential: credential});
   assert.equal(state.pets.length, 1);
