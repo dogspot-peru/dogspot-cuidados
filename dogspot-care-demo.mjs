@@ -44,15 +44,32 @@ export function startDemo(state, template, now = Date.now()) {
   return {tasks:plan, careDemo:{version:1,runId,phase:0,running:true,nextAt:now+DEMO_INTERVAL_MS,clockAt:new Date(sessions[0].from).toISOString(),sessions,finished:false},
     active:{...state.active,status:'activo',rated:false,rating:undefined,comment:undefined},
     bookings:state.bookings.map(b => b.id === state.currentBookingId ? {...b,status:'activo',updatedAt:new Date(now).toISOString()} : b),
-    messages:[], trackingTab:'actualizaciones',
+    messages:[], trackingTab:'estado',
     notifications:[{id:`${runId}:start`,time:clock(plan[0].demoStartAt),text:'Inicio del recorrido de cuidado. Verás cada actividad, su horario y su fotografía de referencia.',read:false,tab:'actualizaciones',kind:'demo-started',bookingId:state.currentBookingId ?? 'demo-service'}]
   };
 }
 
-function referencePhoto(pet) {
-  if (pet?.photo?.trim()) return pet.photo;
+export function referencePhoto(pet, task) {
   const species = (pet?.species ?? '').toLowerCase();
+  const taskId = task?.baseId ?? task?.id?.split(':')[0];
+  if (species.includes('perro') && Object.hasOwn(descriptions,taskId)) return `./luna-${taskId}-v2.jpg`;
   return species.includes('gato') ? './cat-reference.png' : species.includes('conejo') ? './rabbit-reference.png' : /ave|pájaro|pajaro/.test(species) ? './bird-reference.png' : species.includes('perro') ? './luna-evidence-wZL0x3gy.jpg' : './other-reference.svg';
+}
+
+export function upgradeDemoPhotos(state) {
+  const petFor = bookingId => state.bookings?.find(b=>b.id===bookingId)?.petSnapshot ?? state.pets?.find(p=>p.id===(state.bookings?.find(b=>b.id===bookingId)?.petId ?? state.selectedPetId));
+  const upgrade = (service,bookingId) => {
+    const pet=petFor(bookingId);
+    const tasks=(service.tasks??[]).map(t=>t.demoReference&&t.evidence?{...t,evidence:referencePhoto(pet,t)}:t);
+    const messages=(service.messages??[]).map(m=>{
+      if(!m.image||!m.id?.startsWith('care-demo:'))return m;
+      const phase=Number(m.id.match(/:message:(\d+)$/)?.[1]);
+      const task=tasks[Math.floor((phase-1)/2)];
+      return task?.demoReference?{...m,image:referencePhoto(pet,task)}:m;
+    });
+    return {...service,tasks,messages};
+  };
+  return {...state,...upgrade(state,state.currentBookingId),serviceSnapshots:Object.fromEntries(Object.entries(state.serviceSnapshots??{}).map(([id,service])=>[id,upgrade(service,id)]))};
 }
 
 export function advanceDemo(state, now = Date.now(), force = false) {
@@ -68,8 +85,8 @@ export function advanceDemo(state, now = Date.now(), force = false) {
   const phase = demo.phase+1;
   const finished = phase >= state.tasks.length*2;
   const result = {...task,status:completed?'completada':'progreso',time:clock(scheduled),recordedAt:scheduled,capturedAt:new Date(now).toISOString(),demoReference:true,bookingId:state.currentBookingId ?? 'demo-service',caregiverId:state.caregiverId};
-  if (completed) Object.assign(result,{selections:[descriptions[task.baseId ?? task.id] ?? 'Actividad registrada.'],evidence:referencePhoto(pet),mediaType:'photo'});
-  const notification = {id:`${demo.runId}:${phase}`,time:clock(scheduled),text:`${completed?'Actividad completada':'Actividad en progreso'}: ${task.label}.${completed?' Fotografía de referencia disponible.':''}`,read:false,tab:'actualizaciones',kind:completed?'task-completed':'task-started',bookingId:state.currentBookingId ?? 'demo-service'};
+  if (completed) Object.assign(result,{selections:[descriptions[task.baseId ?? task.id] ?? 'Actividad registrada.'],evidence:referencePhoto(pet,task),mediaType:'photo'});
+  const notification = {id:`${demo.runId}:${phase}`,time:clock(scheduled),text:`${completed?'Actividad completada':'Actividad en progreso'}: ${task.label}.${completed?' Fotografía de referencia disponible.':''}`,read:false,tab:'actualizaciones',kind:completed?'task-completed':'task-started',species:pet?.species??'Perro',bookingId:state.currentBookingId ?? 'demo-service'};
   const messages = completed ? [...state.messages,{id:`${demo.runId}:message:${phase}`,from:'caregiver',text:`${pet?.name ?? 'Tu mascota'} · ${task.label}: ${descriptions[task.baseId ?? task.id] ?? 'Actividad registrada.'}`,time:clock(scheduled),image:result.evidence}] : state.messages;
   const notifications = [notification,...state.notifications];
   if (finished) notifications.unshift({id:`${demo.runId}:finished`,time:clock(scheduled),text:'Servicio finalizado. Gracias por confiar en DogSpot. Ya puedes revisar el resumen, las fotografías y calificar el cuidado.',read:false,tab:'actualizaciones',kind:'service-completed',bookingId:state.currentBookingId ?? 'demo-service'});
@@ -89,14 +106,14 @@ export function renderDemoPanel(React, state, template) {
   const start = () => state.set(current=>({...startDemo(current,template()),screen:'tracking'}));
   return h('section',{'aria-label':'Recorrido de cuidado',style:{margin:'12px 20px',padding:14,border:'1px solid #bdd5e6',borderRadius:22,background:'#edf6ff',color:'#20314f'}},
     h('p',{style:{margin:'0 0 5px',fontWeight:900,fontSize:14}},'Demo inicial · Cuidado y seguimiento'),
-    h('p',{style:{margin:'0 0 10px',fontSize:12,lineHeight:1.5}},'Cuenta de exploración con datos académicos. El horario avanza en segundos; las fotos son de referencia.'),
+    !demo&&h('p',{style:{margin:'0 0 10px',fontSize:12,lineHeight:1.5}},'Cuenta de exploración con datos académicos. El horario avanza en segundos; las fotos son de referencia.'),
     demo && h('div',null,
       h('p',{style:{margin:'6px 0',fontSize:13,fontWeight:900},'aria-live':'polite'},`${dateLabel(demo.clockAt)} · ${clock(demo.clockAt)} · ${done}/${state.tasks.length} actividades`),
-      h('p',{style:{margin:'4px 0 10px',fontSize:12}},demo.finished?'Servicio finalizado. Reporte y fotografías disponibles.':selected?`En progreso: ${selected.label}`:demo.running?'Preparando la siguiente actividad…':'Recorrido en pausa'),
-      h('progress',{'aria-label':'Avance del recorrido',value:done,max:Math.max(1,state.tasks.length),style:{width:'100%',accentColor:'#48a2b8'}})),
+      h('p',{style:{margin:'4px 0 6px',fontSize:11}},demo.finished?'Servicio finalizado. Reporte y fotografías disponibles.':!demo.running?'Recorrido en pausa':selected?`En progreso: ${selected.label}`:'Preparando la siguiente actividad…')),
     h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:10}},
       !demo ? button('Iniciar recorrido',start) : demo.finished ? button('Reiniciar recorrido',start) : button(demo.running?'Pausar':'Continuar',()=>state.set(current=>({careDemo:{...current.careDemo,running:!current.careDemo.running,nextAt:Date.now()+DEMO_INTERVAL_MS}}))),
       demo && !demo.finished ? button('Siguiente avance',()=>state.set(current=>advanceDemo(current,Date.now(),true))) : button('Reservar otro horario',()=>state.go('hire')),
+      demo && button('Ver estado actual',()=>state.set({screen:'tracking',trackingTab:'estado'})),
       demo && button('Ver historial y fotos',()=>state.set({screen:'tracking',trackingTab:'actualizaciones'})),
       demo?.finished && button('Ver resumen',()=>state.go('summary'))),
     !demo && h('p',{style:{margin:'10px 0 0',fontSize:11}},'Puedes usar el horario inicial o contratar un servicio y elegir la fecha, hora y cuidador.'));

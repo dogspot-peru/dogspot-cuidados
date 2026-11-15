@@ -7,6 +7,9 @@ on:
       - 'index-runtime-*.js'
       - 'index-care-*.js'
       - 'dogspot-care-demo.mjs'
+      - 'dogspot-experience.mjs'
+      - 'maintenance/test-experience.mjs'
+      - 'maintenance/apply-experience.py'
       - 'dogspot-runtime.mjs'
       - 'maintenance/*runtime*'
       - '.github/workflows/dogspot-runtime-validation.yml'
@@ -16,6 +19,9 @@ on:
       - 'index-runtime-*.js'
       - 'index-care-*.js'
       - 'dogspot-care-demo.mjs'
+      - 'dogspot-experience.mjs'
+      - 'maintenance/test-experience.mjs'
+      - 'maintenance/apply-experience.py'
       - 'dogspot-runtime.mjs'
       - 'maintenance/*runtime*'
       - '.github/workflows/dogspot-runtime-validation.yml'
@@ -40,7 +46,9 @@ jobs:
           PY
           node --check dogspot-runtime.mjs
           node --check dogspot-care-demo.mjs
+          node --check dogspot-experience.mjs
       - name: Verify authentication, recovery and queued data without external requests
         run: |
           node maintenance/test-runtime-fixes.mjs
           node --test maintenance/test-care-demo.mjs
+          node --test maintenance/test-experience.mjs

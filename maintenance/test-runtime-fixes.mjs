@@ -6,7 +6,7 @@ import {registrationState, migrateRegisteredPets} from '../dogspot-onboarding.mj
 import {webcrypto} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {prepareSavedState, verifyCredential, emailTemplateId, emailFailureReason, storedQueue} from '../dogspot-runtime.mjs';
-import {validDemo,startDemo,advanceDemo} from '../dogspot-care-demo.mjs';
+import {validDemo,startDemo,advanceDemo,upgradeDemoPhotos} from '../dogspot-care-demo.mjs';
 
 const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('index.html', root), 'utf8');
@@ -32,7 +32,7 @@ await check('stored registration hash accepts only the correct password', async 
   assert.equal(await verifyCredential('Mascota123', null, webcrypto), false);
 });
 
-const aliases = {DogSpotValidDemo:validDemo,DogSpotRegistrationState: registrationState, DogSpotMigrateRegisteredPets: migrateRegisteredPets, DogSpotPrepareSavedState: prepareSavedState, DogSpotVerifyCredential: verifyCredential, DogSpotEmailTemplateId: emailTemplateId, DogSpotEmailFailureReason: emailFailureReason, DogSpotStoredQueue: storedQueue};
+const aliases = {DogSpotUpgradeDemoPhotos:upgradeDemoPhotos,DogSpotValidDemo:validDemo,DogSpotRegistrationState: registrationState, DogSpotMigrateRegisteredPets: migrateRegisteredPets, DogSpotPrepareSavedState: prepareSavedState, DogSpotVerifyCredential: verifyCredential, DogSpotEmailTemplateId: emailTemplateId, DogSpotEmailFailureReason: emailFailureReason, DogSpotStoredQueue: storedQueue};
 const common = {crypto: webcrypto, Uint8Array, TextEncoder, URL, AbortController, Intl, setTimeout, clearTimeout, ...aliases};
 const restoreContext = vm.createContext({...common, f: [], m: array => array, Ot: () => [{id: 'meds', label: 'Medicamento', status: 'pendiente'}, {id: 'water', label: 'Agua', status: 'pendiente'}]});
 vm.runInContext(slice('function Ve(', 'var He='), restoreContext);
@@ -164,7 +164,7 @@ await check('completion emails use their configured template and retain compatib
 });
 await check('existing integration settings and protected service control are retained', () => {
   assert.equal(readFileSync(new URL('email-config.json', root), 'utf8').includes('dogspot.peru@gmail.com'), true);
-  for (const marker of ['Demo: iniciar cuidado y seguimiento', 'function DogSpotCompletionReceipt(', 'dogspot-state-v1', 'dogspot-sheets-pending-v1']) assert.ok(source.includes(marker));
+  for (const marker of ['startService:b', 'function DogSpotCompletionReceipt(', 'dogspot-state-v1', 'dogspot-sheets-pending-v1']) assert.ok(source.includes(marker));
   assert.equal(original.includes('r&&i===r.email'), true);
   assert.equal(source.includes('r&&i===r.email'), false);
 });
