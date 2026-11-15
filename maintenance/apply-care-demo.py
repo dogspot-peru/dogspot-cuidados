@@ -40,6 +40,7 @@ replace('children:(0,j.jsx)(Ca,{open:f})', 'children:(0,j.jsxs)(j.Fragment,{chil
 replace('function M(){let e=(0,l.useContext)(Pt);if(!e)throw Error(`DogSpotProvider missing`);return e}', 'function M(){let e=(0,l.useContext)(Pt);if(!e)throw Error(`DogSpotProvider missing`);return e}function DogSpotCareDemoPanel(){return DogSpotRenderDemoPanel(l,M(),Ot)}')
 replace('children:[e.mediaType===`video`?`Video`:`Foto`,` adjuntado por el cuidador · `,', 'children:[e.demoReference?`Foto de referencia del recorrido académico`:e.mediaType===`video`?`Video`:`Foto`,e.demoReference?` · `:` adjuntado por el cuidador · `,')
 replace('children:[e.status===`completada`?`Registro completado`:`Actividad iniciada`,` por `,t]', 'children:[e.demoReference?(e.evidence?`Recorrido académico · Foto de referencia · `:`Recorrido académico · `):e.status===`completada`?`Registro completado por `:`Actividad iniciada por `,t]')
+replace('children:[`Registrada por `,o.name,` — `,s.time,` · archivo real adjuntado por el cuidador`]', 'children:[s.demoReference?`Recorrido académico · `:`Registrada por `,o.name,` — `,s.time,s.demoReference?` · Foto de referencia`:` · archivo real adjuntado por el cuidador`]')
 replace('`El servicio de cuidado ha finalizado. Revisa el seguimiento y el resumen en DogSpot.`', '`El servicio de cuidado ha finalizado. Gracias por confiar en DogSpot. Revisa el seguimiento, las fotografías y el resumen de tu servicio en la app.`')
 
 digest = hashlib.sha256(text.encode()).hexdigest()[:12]
