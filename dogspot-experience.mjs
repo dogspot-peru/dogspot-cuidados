@@ -5,6 +5,23 @@ export const extraCaregivers = [
   {id:'gabriel',name:'Gabriel Rojas',initials:'GR',photo:'./caregiver-gabriel.jpg',courses:['Cuidado y acompañamiento de mascotas mayores','Registro y comunicación de cuidados'],experience:'4 años de experiencia declarada',bio:'Cuidado atento de mascotas adultas y mayores, respetando sus tiempos, su comodidad y las instrucciones del propietario.',specialties:['Mascotas mayores','Higiene y comodidad','Cuidados indicados por el propietario'],approach:'Revisa las instrucciones antes de la visita, registra cada actividad y mantiene informado al dueño durante el cuidado.',training:'Perfil académico. Certificados y experiencia pendientes de verificación.',availability:{weekdays:[0,1,2,3,4,5,6],start:'07:00',end:'23:00'}}
 ];
 
+// Illustrative reviews, labelled as examples by the existing profile UI.
+export const extraCaregiverReviews = [
+  {id:'sample-m1',bookingId:'sample-m1',caregiverId:'mariana',rating:5,comment:'Mariana siguió la rutina de alimentación y nos compartió fotos de cada actividad. Muy amable con nuestra mascota.',customer:'Valeria S.',createdAt:'2026-11-12T17:00:00-05:00',source:'sample'},
+  {id:'sample-m2',bookingId:'sample-m2',caregiverId:'mariana',rating:4,comment:'Fue paciente durante el descanso y respetó las indicaciones que dejamos. El resumen de la visita fue claro.',customer:'Luis A.',createdAt:'2026-11-09T16:00:00-05:00',source:'sample'},
+  {id:'sample-m3',bookingId:'sample-m3',caregiverId:'mariana',rating:5,comment:'Nos mantuvo informados durante la jornada y dejó todo ordenado. Nos gustó su trato tranquilo y atento.',customer:'Camila R.',createdAt:'2026-11-06T18:00:00-05:00',source:'sample'},
+  {id:'sample-g1',bookingId:'sample-g1',caregiverId:'gabriel',rating:5,comment:'Gabriel tuvo mucha paciencia con nuestro perro mayor. Respetó sus tiempos de descanso y compartió los avances.',customer:'Andrea M.',createdAt:'2026-11-13T18:00:00-05:00',source:'sample'},
+  {id:'sample-g2',bookingId:'sample-g2',caregiverId:'gabriel',rating:4,comment:'Llegó a la hora acordada y registró la alimentación y el agua. La comunicación durante el cuidado fue buena.',customer:'Miguel T.',createdAt:'2026-11-10T15:00:00-05:00',source:'sample'},
+  {id:'sample-g3',bookingId:'sample-g3',caregiverId:'gabriel',rating:5,comment:'Estuvo pendiente de la comodidad de nuestra mascota y siguió las instrucciones. Al terminar nos explicó cómo fue la visita.',customer:'Sofía C.',createdAt:'2026-11-07T17:00:00-05:00',source:'sample'}
+];
+
+// Saved sessions keep their own comments and gain each missing example once.
+export function withExtraCaregiverReviews(reviews) {
+  const current=Array.isArray(reviews)?reviews:[];
+  const ids=new Set(current.map(review=>review?.id));
+  return [...current,...extraCaregiverReviews.filter(review=>!ids.has(review.id)).map(review=>({...review}))];
+}
+
 const normal = value => String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[¿?¡!.,;:]/g,' ').replace(/\s+/g,' ').trim();
 const baseId = task => task.baseId ?? task.id?.split(':')[0];
 const when = task => task?.time ?? 'sin hora registrada';

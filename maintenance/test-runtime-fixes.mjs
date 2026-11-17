@@ -7,6 +7,7 @@ import {webcrypto} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {prepareSavedState, verifyCredential, emailTemplateId, emailFailureReason, storedQueue} from '../dogspot-runtime.mjs';
 import {validDemo,startDemo,advanceDemo,upgradeDemoPhotos} from '../dogspot-care-demo.mjs';
+import {withExtraCaregiverReviews} from '../dogspot-experience.mjs';
 import {areaError,areaFields,profileAddress,locationError,locationSnapshot,locationNotes} from '../dogspot-location.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -33,7 +34,7 @@ await check('stored registration hash accepts only the correct password', async 
   assert.equal(await verifyCredential('Mascota123', null, webcrypto), false);
 });
 
-const aliases = {DogSpotUpgradeDemoPhotos:upgradeDemoPhotos,DogSpotValidDemo:validDemo,DogSpotRegistrationState: registrationState, DogSpotMigrateRegisteredPets: migrateRegisteredPets, DogSpotPrepareSavedState: prepareSavedState, DogSpotVerifyCredential: verifyCredential, DogSpotEmailTemplateId: emailTemplateId, DogSpotEmailFailureReason: emailFailureReason, DogSpotStoredQueue: storedQueue};
+const aliases = {DogSpotWithExtraCaregiverReviews:withExtraCaregiverReviews,DogSpotUpgradeDemoPhotos:upgradeDemoPhotos,DogSpotValidDemo:validDemo,DogSpotRegistrationState: registrationState, DogSpotMigrateRegisteredPets: migrateRegisteredPets, DogSpotPrepareSavedState: prepareSavedState, DogSpotVerifyCredential: verifyCredential, DogSpotEmailTemplateId: emailTemplateId, DogSpotEmailFailureReason: emailFailureReason, DogSpotStoredQueue: storedQueue};
 const common = {crypto: webcrypto, Uint8Array, TextEncoder, URL, AbortController, Intl, setTimeout, clearTimeout, ...aliases,DogSpotAreaError:areaError,DogSpotAreaFields:areaFields,DogSpotProfileAddress:profileAddress,DogSpotLocationError:locationError,DogSpotLocationSnapshot:locationSnapshot,DogSpotLocationNotes:locationNotes};
 const restoreContext = vm.createContext({...common, f: [], m: array => array, Ot: () => [{id: 'meds', label: 'Medicamento', status: 'pendiente'}, {id: 'water', label: 'Agua', status: 'pendiente'}]});
 vm.runInContext(slice('function Ve(', 'var He='), restoreContext);
@@ -65,6 +66,16 @@ await check('legacy and malformed state restores without discarding valid record
   assert.equal(state.screen, 'splash');
   assert.doesNotThrow(() => restore(null));
   assert.doesNotThrow(() => restore({pets: [], active: null, serviceSnapshots: null}));
+});
+
+await check('old sessions receive both caregivers comments without losing or duplicating saved reviews',()=>{
+  const savedReview={id:'owner-review',bookingId:'booking-old',caregiverId:'mariana',rating:3,comment:'Comentario conservado',customer:'Cliente',createdAt:'2026-11-16T15:00:00-05:00',source:'session'};
+  const state=restore({reviews:[savedReview]});
+  assert.equal(state.reviews.filter(review=>review.caregiverId==='mariana').length,4);
+  assert.equal(state.reviews.filter(review=>review.caregiverId==='gabriel').length,3);
+  assert.equal(state.reviews.find(review=>review.id==='owner-review').comment,savedReview.comment);
+  assert.equal(restore(JSON.parse(JSON.stringify(state))).reviews.length,state.reviews.length);
+  assert.match(source,/f\.push\(\.\.\.DogSpotExtraCaregiverReviews\)/);
 });
 
 const user = {id: 'customer-1', name: 'Cliente', email: 'cliente@example.org', phone: '000000000',district:'Trujillo',neighborhood:'Centro'};

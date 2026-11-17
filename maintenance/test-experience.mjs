@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {assistantReply,caregiverReply,ownerStatus,extraCaregivers,createExperience} from '../dogspot-experience.mjs';
+import {assistantReply,caregiverReply,ownerStatus,extraCaregivers,extraCaregiverReviews,withExtraCaregiverReviews,createExperience} from '../dogspot-experience.mjs';
 import {startDemo,advanceDemo,upgradeDemoPhotos,referencePhoto} from '../dogspot-care-demo.mjs';
 
 const tasks=['care','feeding','meds','water','mood','pee','rest','notes'].map(id=>({id,label:({feeding:'Alimentación',water:'Agua e hidratación',meds:'Medicamento indicado',rest:'Descanso'})[id]??id,status:'pendiente'}));
@@ -85,6 +85,30 @@ test('two additional caregivers include full profiles, portraits and extended av
   assert.equal(extraCaregivers.length,2);
   assert.equal(new Set(extraCaregivers.map(c=>c.id)).size,2);
   for(const caregiver of extraCaregivers){assert.ok(caregiver.bio&&caregiver.approach&&caregiver.training);assert.ok(caregiver.courses.length>=2);assert.equal(caregiver.availability.weekdays.length,7);assert.equal(caregiver.availability.start,'07:00');assert.equal(caregiver.availability.end,'23:00');assert.ok(readFileSync(new URL('../'+caregiver.photo,import.meta.url)).length>1000);}
+});
+
+test('both additional profiles have three labelled example comments and a computed star average',()=>{
+  assert.equal(new Set(extraCaregiverReviews.map(review=>review.id)).size,6);
+  for(const caregiver of extraCaregivers){
+    const reviews=extraCaregiverReviews.filter(review=>review.caregiverId===caregiver.id);
+    assert.equal(reviews.length,3);
+    assert.equal((reviews.reduce((sum,review)=>sum+review.rating,0)/reviews.length).toFixed(1),'4.7');
+    for(const review of reviews){assert.equal(review.source,'sample');assert.ok(review.comment.length>30);assert.ok(Number.isFinite(Date.parse(review.createdAt)));}
+  }
+});
+
+test('saved sessions gain missing caregiver examples once without replacing customer reviews',()=>{
+  const customerReview={id:'real-review',bookingId:'real-booking',caregiverId:'mariana',rating:2,comment:'Mi comentario guardado',source:'session'};
+  const saved=[customerReview,{...extraCaregiverReviews[0],comment:'Ejemplo ya guardado'}];
+  const before=structuredClone(saved);
+  const merged=withExtraCaregiverReviews(saved);
+  assert.equal(merged.length,7);
+  assert.deepEqual(withExtraCaregiverReviews(merged),merged);
+  assert.deepEqual(saved,before);
+  assert.equal(merged[0],customerReview);
+  assert.equal(merged[1].comment,'Ejemplo ya guardado');
+  assert.equal(withExtraCaregiverReviews(undefined).length,6);
+  assert.notEqual(merged[2],extraCaregiverReviews[1]);
 });
 
 test('the chat only exposes the owner composer, including in exploration without a booking',()=>{

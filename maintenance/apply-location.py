@@ -27,6 +27,11 @@ experience_digest = hashlib.sha256((root/'dogspot-experience.mjs').read_bytes())
 text = re.sub(r'(?<=dogspot-experience\.mjs\?v=)[a-f0-9]+', experience_digest, text)
 text = 'import {createLocationFeature as DogSpotCreateLocationFeature,areaError as DogSpotAreaError,areaFields as DogSpotAreaFields,profileAddress as DogSpotProfileAddress,locationError as DogSpotLocationError,locationSnapshot as DogSpotLocationSnapshot,locationNotes as DogSpotLocationNotes} from "./dogspot-location.mjs?v='+digest+'";\n'+text
 
+# Complete the newer caregiver profiles in both fresh and already saved sessions.
+replace('extraCaregivers as DogSpotExtraCaregivers,', 'extraCaregivers as DogSpotExtraCaregivers,extraCaregiverReviews as DogSpotExtraCaregiverReviews,withExtraCaregiverReviews as DogSpotWithExtraCaregiverReviews,')
+replace('d.push(...DogSpotExtraCaregivers);', 'd.push(...DogSpotExtraCaregivers);f.push(...DogSpotExtraCaregiverReviews);')
+in_function('Mt', 't.reviews=Array.isArray(e.reviews)?t.reviews:[...f]', 't.reviews=DogSpotWithExtraCaregiverReviews(Array.isArray(e.reviews)?t.reviews:[...f])')
+
 # Existing registration keeps its password protection and validation.
 in_function('Da', '{name:``,phone:``,email:``,pw:``}', '{name:``,phone:``,email:``,pw:``,district:``,neighborhood:``}')
 in_function('Da', 'p=async t=>{if(t.preventDefault(),', 'p=async t=>{t.preventDefault();let locationProblem=DogSpotAreaError(n);if(locationProblem){a(!0);d(locationProblem);return;}if(')
@@ -59,7 +64,7 @@ replace('v=e=>{let r={...e,updatedAt:', 'v=e=>{if(DogSpotLocationError(e.service
 # The location is a snapshot of this booking, never a live link to a mutable profile.
 in_function('Na', '(0,j.jsx)(B,{className:`mt-5 space-y-2`', '(0,j.jsx)(DogSpotLocation.LocationSummary,{}),(0,j.jsx)(B,{className:`mt-5 space-y-2`')
 in_function('Zi', '(0,j.jsxs)(`div`,{className:`space-y-4 px-5`,children:[', '(0,j.jsxs)(`div`,{className:`space-y-4 px-5`,children:[(0,j.jsx)(DogSpotLocation.LocationSummary,{}),')
-replace('d.push(...DogSpotExtraCaregivers);const DogSpotExperience=', 'const DogSpotLocation=DogSpotCreateLocationFeature(l,M);d.push(...DogSpotExtraCaregivers);const DogSpotExperience=')
+replace('d.push(...DogSpotExtraCaregivers);f.push(...DogSpotExtraCaregiverReviews);const DogSpotExperience=', 'const DogSpotLocation=DogSpotCreateLocationFeature(l,M);d.push(...DogSpotExtraCaregivers);f.push(...DogSpotExtraCaregiverReviews);const DogSpotExperience=')
 replace('DogSpotCreateExperience(l,M,d,{enableSound:', 'DogSpotCreateExperience(l,M,d,{LocationSummary:DogSpotLocation.LocationSummary,enableSound:')
 
 # Existing private Sheets records keep their schema, with location in the notes too.
