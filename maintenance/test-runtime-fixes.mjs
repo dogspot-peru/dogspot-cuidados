@@ -7,10 +7,11 @@ import {webcrypto} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {prepareSavedState, verifyCredential, emailTemplateId, emailFailureReason, storedQueue} from '../dogspot-runtime.mjs';
 import {validDemo,startDemo,advanceDemo,upgradeDemoPhotos} from '../dogspot-care-demo.mjs';
+import {areaError,areaFields,profileAddress,locationError,locationSnapshot,locationNotes} from '../dogspot-location.mjs';
 
 const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('index.html', root), 'utf8');
-const name = html.match(/src="\.\/(index-(?:runtime|care)-[a-f0-9]+\.js)"/)[1];
+const name = html.match(/src="\.\/(index-(?:runtime|care|location)-[a-f0-9]+\.js)"/)[1];
 const source = readFileSync(new URL(name, root), 'utf8');
 const original = readFileSync(new URL('index-copy-e2117d823cf8.js', root), 'utf8');
 const slice = (start, end, text = source) => {
@@ -33,7 +34,7 @@ await check('stored registration hash accepts only the correct password', async 
 });
 
 const aliases = {DogSpotUpgradeDemoPhotos:upgradeDemoPhotos,DogSpotValidDemo:validDemo,DogSpotRegistrationState: registrationState, DogSpotMigrateRegisteredPets: migrateRegisteredPets, DogSpotPrepareSavedState: prepareSavedState, DogSpotVerifyCredential: verifyCredential, DogSpotEmailTemplateId: emailTemplateId, DogSpotEmailFailureReason: emailFailureReason, DogSpotStoredQueue: storedQueue};
-const common = {crypto: webcrypto, Uint8Array, TextEncoder, URL, AbortController, Intl, setTimeout, clearTimeout, ...aliases};
+const common = {crypto: webcrypto, Uint8Array, TextEncoder, URL, AbortController, Intl, setTimeout, clearTimeout, ...aliases,DogSpotAreaError:areaError,DogSpotAreaFields:areaFields,DogSpotProfileAddress:profileAddress,DogSpotLocationError:locationError,DogSpotLocationSnapshot:locationSnapshot,DogSpotLocationNotes:locationNotes};
 const restoreContext = vm.createContext({...common, f: [], m: array => array, Ot: () => [{id: 'meds', label: 'Medicamento', status: 'pendiente'}, {id: 'water', label: 'Agua', status: 'pendiente'}]});
 vm.runInContext(slice('function Ve(', 'var He='), restoreContext);
 const restoration = 'var ' + slice('kt={id:`luna`', 'var Nt=');
@@ -66,7 +67,7 @@ await check('legacy and malformed state restores without discarding valid record
   assert.doesNotThrow(() => restore({pets: [], active: null, serviceSnapshots: null}));
 });
 
-const user = {id: 'customer-1', name: 'Cliente', email: 'cliente@example.org', phone: '000000000'};
+const user = {id: 'customer-1', name: 'Cliente', email: 'cliente@example.org', phone: '000000000',district:'Trujillo',neighborhood:'Centro'};
 async function clickLogin(email, password, account = user, savedCredential = credential) {
   const values = [email, password, false, '', false];
   let index = 0, patch = null, error = '';
@@ -113,7 +114,7 @@ function provider(initial) {
   const context = vm.createContext({...common, At: initial, kt: {}, f: [], d: [], jt: 'state', Pt: {Provider: 'Provider'},
     l: {useState: () => count++ === 0 ? [state, change => {state = typeof change === 'function' ? change(state) : change;}] : [false, () => {}], useRef: value => ({current: value}), useEffect() {}},
     j: {jsx: (type, props) => props.value},
-    Oe: value => value.trim().toLowerCase(), Ae: () => null, Be: async () => ({status: 'unavailable'}),
+    Oe: value => value.trim().toLowerCase(), Ae: () => null, je: () => null, Be: async () => ({status: 'unavailable'}),
     St: () => ({recordRegistration: (...args) => {registration = args;}, recordBooking() {}}),
     Ot: () => [{id: 'meds', status: 'pendiente'}, {id: 'water', status: 'pendiente'}], Lt: () => '09:00'
   });
@@ -123,7 +124,7 @@ function provider(initial) {
 const defaults = {user, authCredential: null, pets: [{id: 'pet-b', name: 'Mascota B', meds: ''}], selectedPetId: 'removed-a', bookings: [{id: 'booking-a', petId: 'removed-a', caregiverId: 'ana', status: 'finalizado', petSnapshot: {id: 'removed-a', name: 'Mascota A', meds: ''}}], currentBookingId: 'booking-a', serviceSnapshots: {}, reviews: [], emailReceipts: [], notifications: [], tasks: [], messages: [], active: {status: 'finalizado', rated: false}};
 await check('registering an older local email preserves its identity and saves only its hash', () => {
   const p = provider(defaults);
-  p.api.registerUser({name: 'Nombre actualizado', email: ' CLIENTE@EXAMPLE.ORG ', phone: '000000000'}, credential);
+  p.api.registerUser({name: 'Nombre actualizado', email: ' CLIENTE@EXAMPLE.ORG ', phone: '000000000',district:'Trujillo',neighborhood:'Centro'}, credential);
   assert.equal(p.state().user.id, user.id);
   assert.equal(p.state().authCredential.derived, credential.derived);
   assert.equal(p.registration()[2].derived, credential.derived);
@@ -183,5 +184,22 @@ await check('new registration starts without the exploration pet and keeps mail 
   assert.equal(p.state().screen, 'registration-confirmation');
   assert.equal(p.state().authCredential.derived, credential.derived);
   assert.equal(p.registration().length, 3);
+});
+await check('registration cannot bypass the coverage requirement through the provider API',()=>{
+  const p=provider(defaults);
+  assert.throws(()=>p.api.registerUser({...user,district:'El Porvenir'},credential),/El Porvenir/);
+  assert.equal(p.state(),defaults);
+});
+await check('new reservations reject missing or excluded points and freeze accepted locations',()=>{
+  const p=provider(defaults),location={district:'Trujillo',neighborhood:'Centro',address:'Dirección QA 123',reference:'Timbre 2',lat:-8.1116,lng:-79.0287,confirmedAt:'2026-11-17T20:00:00.000Z'};
+  const booking={id:'new-booking',petId:'pet-b',caregiverId:'ana',status:'confirmado',payment:'Yape'};
+  assert.equal(p.api.addBooking(booking),false);
+  assert.equal(p.api.addBooking({...booking,serviceLocation:{...location,lat:-8.08,lng:-79.005}}),false);
+  assert.equal(p.state().bookings.length,defaults.bookings.length);
+  p.api.addBooking({...booking,serviceLocation:location});
+  location.address='Changed profile';location.lat=0;
+  assert.equal(p.state().bookings[0].serviceLocation.address,'Dirección QA 123');
+  assert.equal(p.state().bookings[0].serviceLocation.lat,-8.1116);
+  assert.equal(p.state().screen,'confirm');
 });
 console.log(`${checks.length} offline regression checks passed for ${name}.`);
