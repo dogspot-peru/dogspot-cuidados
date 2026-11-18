@@ -5,7 +5,6 @@ const personal = state => !!state.user?.email && state.user.email.toLowerCase() 
 export const isExploration = state => state.exploration === true || !personal(state);
 export const validDemo = (demo,tasks) => !!(demo && demo.version === 1 && typeof demo.runId === 'string' && Number.isInteger(demo.phase) && demo.phase >= 0 && demo.phase <= tasks.length*2 && Number.isFinite(Date.parse(demo.clockAt)) && tasks.length && tasks.every(t=>Number.isFinite(Date.parse(t.demoStartAt)) && Number.isFinite(Date.parse(t.demoEndAt))));
 const clock = iso => new Date(iso).toLocaleTimeString('es-PE', {timeZone:'America/Lima', hour:'2-digit', minute:'2-digit', hour12:true});
-const dateLabel = iso => new Date(iso).toLocaleDateString('es-PE', {timeZone:'America/Lima', day:'2-digit', month:'2-digit', year:'numeric'});
 const dateToday = () => new Intl.DateTimeFormat('en-CA', {timeZone:'America/Lima', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
 const descriptions = {
   feeding: 'Aceptó la porción de alimento indicada por su propietario.',
@@ -92,29 +91,8 @@ export function advanceDemo(state, now = Date.now(), force = false) {
   if (finished) notifications.unshift({id:`${demo.runId}:finished`,time:clock(scheduled),text:'Servicio finalizado. Gracias por confiar en DogSpot. Ya puedes revisar el resumen, las fotografías y calificar el cuidado.',read:false,tab:'actualizaciones',kind:'service-completed',bookingId:state.currentBookingId ?? 'demo-service'});
   return {tasks:state.tasks.map((t,i)=>i===index?result:t),messages,notifications,
     careDemo:{...demo,phase,clockAt:scheduled,nextAt:now+DEMO_INTERVAL_MS,running:demo.running&&!finished,finished},
-    ...(finished?{active:{...state.active,status:'finalizado'},bookings:state.bookings.map(b=>b.id===state.currentBookingId?{...b,status:'finalizado',updatedAt:new Date(now).toISOString()}:b)}:{})};
+    ...(finished?{active:{...state.active,status:'finalizado'},screen:'summary',bookings:state.bookings.map(b=>b.id===state.currentBookingId?{...b,status:'finalizado',updatedAt:new Date(now).toISOString()}:b)}:{})};
 }
 
-export function renderDemoPanel(React, state, template) {
-  if (!isExploration(state) || !['home','active','tracking','summary','confirm'].includes(state.screen)) return null;
-  const h = React.createElement;
-  const demo = validDemo(state.careDemo,state.tasks) ? state.careDemo : null;
-  const done = state.tasks.filter(t=>t.status==='completada').length;
-  const selected = state.tasks.find(t=>t.status==='progreso');
-  const buttonStyle = {minHeight:40,borderRadius:14,border:'1px solid #adcadb',background:'#fff',padding:'8px 10px',fontWeight:800,color:'#20314f',fontSize:12,cursor:'pointer'};
-  const button = (label,onClick,disabled=false) => h('button',{type:'button',style:{...buttonStyle,opacity:disabled?.45:1},onClick,disabled},label);
-  const start = () => state.set(current=>({...startDemo(current,template()),screen:'tracking'}));
-  return h('section',{'aria-label':'Recorrido de cuidado',style:{margin:'12px 20px',padding:14,border:'1px solid #bdd5e6',borderRadius:22,background:'#edf6ff',color:'#20314f'}},
-    h('p',{style:{margin:'0 0 5px',fontWeight:900,fontSize:14}},'Demo inicial · Cuidado y seguimiento'),
-    !demo&&h('p',{style:{margin:'0 0 10px',fontSize:12,lineHeight:1.5}},'Cuenta de exploración con datos académicos. El horario avanza en segundos; las fotos son de referencia.'),
-    demo && h('div',null,
-      h('p',{style:{margin:'6px 0',fontSize:13,fontWeight:900},'aria-live':'polite'},`${dateLabel(demo.clockAt)} · ${clock(demo.clockAt)} · ${done}/${state.tasks.length} actividades`),
-      h('p',{style:{margin:'4px 0 6px',fontSize:11}},demo.finished?'Servicio finalizado. Reporte y fotografías disponibles.':!demo.running?'Recorrido en pausa':selected?`En progreso: ${selected.label}`:'Preparando la siguiente actividad…')),
-    h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:10}},
-      !demo ? button('Iniciar recorrido',start) : demo.finished ? button('Reiniciar recorrido',start) : button(demo.running?'Pausar':'Continuar',()=>state.set(current=>({careDemo:{...current.careDemo,running:!current.careDemo.running,nextAt:Date.now()+DEMO_INTERVAL_MS}}))),
-      demo && !demo.finished ? button('Siguiente avance',()=>state.set(current=>advanceDemo(current,Date.now(),true))) : button('Reservar otro horario',()=>state.go('hire')),
-      demo && button('Ver estado actual',()=>state.set({screen:'tracking',trackingTab:'estado'})),
-      demo && button('Ver historial y fotos',()=>state.set({screen:'tracking',trackingTab:'actualizaciones'})),
-      demo?.finished && button('Ver resumen',()=>state.go('summary'))),
-    !demo && h('p',{style:{margin:'10px 0 0',fontSize:11}},'Puedes usar el horario inicial o contratar un servicio y elegir la fecha, hora y cuidador.'));
-}
+// Compatibility for older integrations: controls now live only in the service.
+export function renderDemoPanel() { return null; }

@@ -117,3 +117,18 @@ test('the chat only exposes the owner composer, including in exploration without
   const chat=JSON.stringify(components.Messages({open:()=>{}}));
   assert.match(chat,/Vista del dueño/);assert.match(chat,/Mensaje al cuidador/);assert.doesNotMatch(chat,/Vista de Mariana|Escribes como|Escribe la respuesta del cuidador/);
 });
+
+test('one service button starts the initial demo and resumes older paused progress',()=>{
+  const react={createElement:(tag,props,...children)=>({tag,props,children}),useState:initial=>[initial,()=>{}]};
+  let state={...fixture(),screen:'active',active:{status:'activo'},startService:()=>{state.started=true;},set:patch=>{state={...state,...typeof patch==='function'?patch(state):patch};}};
+  const components=createExperience(react,()=>state,caregivers);
+  const buttons=node=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(buttons):[...(node.tag==='button'?[node]:[]),...buttons(node.children)];
+  let button=buttons(components.Active({open(){}})).find(node=>node.children[0]==='Demo inicial: iniciar cuidado y seguimiento');
+  assert.ok(button);button.props.onClick();assert.equal(state.started,true);assert.equal(state.screen,'tracking');
+  state={...state,...startDemo(state,tasks,1000)};
+  state={...state,...advanceDemo(state,1001,true)};
+  state.careDemo={...state.careDemo,running:false};const before=structuredClone(state.tasks);
+  button=buttons(components.Active({open(){}})).find(node=>node.children[0]==='Demo inicial: continuar cuidado y seguimiento');
+  assert.ok(button);button.props.onClick();assert.equal(state.careDemo.running,true);assert.deepEqual(state.tasks,before);assert.equal(state.careDemo.phase,1);
+  assert.equal(buttons(components.Active({open(){}})).filter(node=>String(node.children[0]).startsWith('Demo inicial:')).length,0);
+});

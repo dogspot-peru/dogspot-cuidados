@@ -126,9 +126,10 @@ function provider(initial) {
     l: {useState: () => count++ === 0 ? [state, change => {state = typeof change === 'function' ? change(state) : change;}] : [false, () => {}], useRef: value => ({current: value}), useEffect() {}},
     j: {jsx: (type, props) => props.value},
     Oe: value => value.trim().toLowerCase(), Ae: () => null, je: () => null, Be: async () => ({status: 'unavailable'}),
-    St: () => ({recordRegistration: (...args) => {registration = args;}, recordBooking() {}}),
+    St: () => ({recordRegistration: (...args) => {registration = args;}, recordBooking() {}}),DogSpotCompletionReceipt:()=>null,
     Ot: () => [{id: 'meds', status: 'pendiente'}, {id: 'water', status: 'pendiente'}], Lt: () => '09:00'
   });
+  vm.runInContext(slice('function m(e,t)', 'var h='), context);
   vm.runInContext(slice('function Ft({children:e})', 'function M()'), context);
   return {api: vm.runInContext('Ft({children:null})', context), state: () => state, registration: () => registration};
 }
@@ -212,5 +213,32 @@ await check('new reservations reject missing or excluded points and freeze accep
   assert.equal(p.state().bookings[0].serviceLocation.address,'Dirección QA 123');
   assert.equal(p.state().bookings[0].serviceLocation.lat,-8.1116);
   assert.equal(p.state().screen,'confirm');
+});
+await check('manual completion opens the summary and ratings remain tied to one finished booking and caregiver',()=>{
+  const prior={id:'prior',bookingId:'other-booking',caregiverId:'ana',rating:4,comment:'Conservar',source:'session'};
+  const p=provider({...defaults,caregiverId:'gabriel',active:{status:'activo',rated:false},reviews:[prior],bookings:[{...defaults.bookings[0],caregiverId:'gabriel',status:'activo'},{id:'other-booking',status:'confirmado'}]});
+  p.api.rateService(5,'Aún no termina');assert.equal(p.state().reviews.length,1);
+  p.api.finishService();assert.equal(p.state().screen,'summary');assert.equal(p.state().active.status,'finalizado');assert.equal(p.state().bookings[1].status,'confirmado');
+  p.api.rateService(5,'Buen cuidado');p.api.rateService(4,'Comentario editado');
+  assert.equal(p.state().reviews.length,2);
+  const review=p.state().reviews.find(review=>review.bookingId==='booking-a');
+  assert.equal(review.caregiverId,'gabriel');assert.equal(review.rating,4);assert.equal(review.comment,'Comentario editado');assert.equal(p.state().active.rated,true);assert.equal(p.state().reviews[0].comment,'Conservar');
+});
+await check('finished unrated services automatically open the existing star and comment form',()=>{
+  function summary(state){
+    const context=vm.createContext({...common,M:()=>state,d:[{id:'gabriel',name:'Gabriel Rojas'}],
+      l:{useState:initial=>[initial,()=>{}]},j:{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})},
+      DogSpotLocation:{LocationSummary:'location'},Xi:{activo:'Activo',finalizado:'Finalizado'},pi:'heading',B:'card',gi:'badge',Mi:'caregiver',z:'button',pn:'check',rn:'saved',An:'star',hi:'dialog',mi:'',R:(...values)=>values.join(' '),we:()=>[],It:n=>n,Te:()=>2,O:s=>s,D:s=>s,ge:s=>s,me:()=>''});
+    vm.runInContext(slice('function Zi(){','function Qi(){'),context);
+    return vm.runInContext('Zi()',context);
+  }
+  function nodes(node){return !node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes(node.props?.children)];}
+  const state={...defaults,caregiverId:'gabriel',pet:{name:'Luna'},go(){},rateService(){},startService(){}};
+  let tree=nodes(summary(state));assert.equal(tree.find(node=>node.type==='dialog').props.open,true);
+  assert.equal(tree.filter(node=>node.type==='button'&&node.props['aria-label']?.endsWith('estrellas')).length,5);
+  assert.equal(tree.find(node=>node.type==='textarea').props.maxLength,2000);
+  assert.equal(nodes(summary({...state,reviews:[{bookingId:'booking-a',caregiverId:'gabriel',rating:5,comment:'Guardada'}]})).find(node=>node.type==='dialog').props.open,false);
+  assert.equal(nodes(summary({...state,active:{status:'activo'}})).find(node=>node.type==='dialog').props.open,false);
+  assert.doesNotMatch(source,/DogSpotCareDemoPanel/);
 });
 console.log(`${checks.length} offline regression checks passed for ${name}.`);

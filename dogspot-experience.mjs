@@ -1,4 +1,4 @@
-import {isExploration,referencePhoto} from './dogspot-care-demo.mjs?v=4deb738a6f4e';
+import {isExploration,referencePhoto,validDemo,DEMO_INTERVAL_MS} from './dogspot-care-demo.mjs?v=99cd0e8fa12c';
 
 export const extraCaregivers = [
   {id:'mariana',name:'Mariana Salazar',initials:'MS',photo:'./caregiver-mariana.jpg',courses:['Bienestar y manejo respetuoso de mascotas','Acompañamiento de mascotas en recuperación'],experience:'3 años de experiencia declarada',bio:'Acompañamiento paciente a domicilio, con atención a la alimentación, el descanso y las indicaciones de cada familia.',specialties:['Rutinas de alimentación','Recuperación y reposo','Comunicación con el dueño'],approach:'Organiza cada visita según la ficha de la mascota y comparte el avance de las actividades con fotografías y observaciones claras.',training:'Perfil académico. Certificados y experiencia pendientes de verificación.',availability:{weekdays:[0,1,2,3,4,5,6],start:'07:00',end:'23:00'}},
@@ -131,16 +131,23 @@ export function createExperience(React,useState,caregivers,ui={}) {
 
   function Active({open}) {
     const state=useState(),caregiver=caregiverFor(state),booking=state.bookings.find(b=>b.id===state.currentBookingId),[showProfile,setShowProfile]=React.useState(false);
+    const academic=isExploration(state),demo=validDemo(state.careDemo,state.tasks)?state.careDemo:null;
+    const paused=academic&&demo&&!demo.finished&&!demo.running&&state.active.status==='activo';
+    const canStart=state.active.status==='confirmado'||academic&&!demo;
+    const start=()=>{
+      if(paused)state.set(current=>({careDemo:{...current.careDemo,running:true,nextAt:Date.now()+DEMO_INTERVAL_MS},screen:'tracking',trackingTab:'estado'}));
+      else {state.startService();state.set({screen:'tracking',trackingTab:'estado'});}
+    };
     return h('div',null,heading('Tu servicio',()=>state.go('home')),h('div',{style:stackStyle},
       ui.LocationSummary&&h(ui.LocationSummary),
       card([h('h2',{style:{fontSize:24,fontWeight:900,margin:0}},nameOf(state)),text('Cuidador: '+caregiver.name),text(booking?`${booking.date} · ${booking.start} – ${booking.end}`:'Horario inicial: 2:00 p. m. – 6:00 p. m.'),badge(state.active.status==='finalizado'?'Finalizado':state.active.status==='activo'?'En curso':'Confirmado')]),
-      state.active.status==='confirmado'&&btn('Demo inicial: iniciar cuidado y seguimiento',()=>{state.startService();state.set({screen:'tracking',trackingTab:'estado'});},{background:C.aqua,color:'#fff'}),
+      (canStart||paused)&&btn(paused?'Demo inicial: continuar cuidado y seguimiento':academic?'Demo inicial: iniciar cuidado y seguimiento':'Iniciar cuidado y seguimiento',start,{background:C.aqua,color:'#fff'}),
       btn('Ver estado de '+nameOf(state),()=>state.set({screen:'tracking',trackingTab:'estado'}),{background:C.aqua,color:'#fff'}),
       btn('Historial y fotografías',()=>state.set({screen:'tracking',trackingTab:'actualizaciones'})),
       h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},btn('Mensaje a '+caregiver.name.split(' ')[0],()=>state.go('messages')),btn('Consultar a ABY',()=>state.go('assistant'))),
       btn('Ver perfil de '+caregiver.name,()=>setShowProfile(!showProfile)),
       showProfile&&card([h('img',{src:caregiver.photo==='ana'?'./ana-torres-wTL3UHn2.jpg':caregiver.photo,alt:caregiver.name,style:{width:70,height:70,objectFit:'cover',borderRadius:20}}),h('h3',{style:{fontSize:18,fontWeight:900,margin:'8px 0'}},caregiver.name),text(caregiver.bio),text(caregiver.experience,{fontWeight:800}),...caregiver.courses.map(course=>text('• '+course,{fontSize:12})),text(caregiver.training,{fontSize:10,color:C.muted})]),
-      state.active.status==='finalizado'&&btn('Ver resumen final',()=>state.go('summary')),
+      state.active.status==='finalizado'&&btn(state.active.rated?'Ver mi calificación y resumen':'Calificar y comentar al cuidador',()=>state.go('summary')),
       btn('Emergencia',()=>open('emergency'),{background:'#fff0ef',color:'#a34242'})));
   }
 

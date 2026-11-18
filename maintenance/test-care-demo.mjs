@@ -20,6 +20,7 @@ test('a chosen booking advances within its own Peru schedule with photos and a f
     assert.equal(s.tasks.filter(t=>t.status==='completada').length,Math.floor(i/2));
   }
   assert.equal(s.active.status,'finalizado');
+  assert.equal(s.screen,'summary');
   assert.equal(s.bookings[0].status,'finalizado');
   assert.equal(s.careDemo.clockAt,'2026-11-20T17:00:00.000Z');
   assert.equal(s.careDemo.running,false);
@@ -89,25 +90,20 @@ test('invalid booking sessions cannot produce an invented valid walkthrough',()=
   assert.deepEqual(startDemo(s,template,1000),{});
 });
 
-test('the UI identifies academic photos and exposes pause, steps and history',()=>{
+test('the removed global demo panel stays absent before, during and after a service',()=>{
   const react={createElement:(tag,props,...children)=>({tag,props,children})};
   let s={...fixture(),set:()=>{},go:()=>{}};
-  let panel=renderDemoPanel(react,s,()=>template);
-  assert.match(JSON.stringify(panel),/datos académicos/);
-  assert.match(JSON.stringify(panel),/Iniciar recorrido/);
+  for(const screen of ['home','active','tracking','summary','confirm'])assert.equal(renderDemoPanel(react,{...s,screen},()=>template),null);
   s=apply(s,startDemo(s,template,1000));
-  panel=renderDemoPanel(react,s,()=>template);
-  assert.match(JSON.stringify(panel),/Pausar/);
-  assert.match(JSON.stringify(panel),/Siguiente avance/);
-  assert.match(JSON.stringify(panel),/Ver historial y fotos/);
+  assert.equal(renderDemoPanel(react,s,()=>template),null);
+  for(let i=0;i<8;i++)s=apply(s,advanceDemo(s,1000+i,true));
+  assert.equal(renderDemoPanel(react,s,()=>template),null);
   assert.equal(renderDemoPanel(react,{...s,exploration:false,user:{email:'owner@example.com'}},()=>template),null);
 });
 
-test('older saved walkthrough data offers a clean restart without invalid dates',()=>{
+test('older invalid walkthrough data cannot advance or recreate the removed panel',()=>{
   const s={...fixture(),careDemo:{running:true},set:()=>{},go:()=>{}};
   const react={createElement:(tag,props,...children)=>({tag,props,children})};
-  const panel=JSON.stringify(renderDemoPanel(react,s,()=>template));
-  assert.doesNotMatch(panel,/Invalid Date/);
-  assert.match(panel,/Iniciar recorrido/);
+  assert.equal(renderDemoPanel(react,s,()=>template),null);
   assert.deepEqual(advanceDemo(s,10000),{});
 });

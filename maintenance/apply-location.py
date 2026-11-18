@@ -22,15 +22,30 @@ def in_function(name, old, new):
         raise RuntimeError(f'{name}: expected one integration point: {old[:80]}')
     text = text[:start] + part.replace(old, new) + text[end:]
 
+care_digest = hashlib.sha256((root/'dogspot-care-demo.mjs').read_bytes()).hexdigest()[:12]
+experience_file = root/'dogspot-experience.mjs'
+experience_file.write_text(re.sub(r'(?<=dogspot-care-demo\.mjs\?v=)[a-f0-9]+',care_digest,experience_file.read_text()))
 digest = hashlib.sha256((root/'dogspot-location.mjs').read_bytes()).hexdigest()[:12]
 experience_digest = hashlib.sha256((root/'dogspot-experience.mjs').read_bytes()).hexdigest()[:12]
 text = re.sub(r'(?<=dogspot-experience\.mjs\?v=)[a-f0-9]+', experience_digest, text)
+text = re.sub(r'(?<=dogspot-care-demo\.mjs\?v=)[a-f0-9]+', care_digest, text)
 text = 'import {createLocationFeature as DogSpotCreateLocationFeature,areaError as DogSpotAreaError,areaFields as DogSpotAreaFields,profileAddress as DogSpotProfileAddress,locationError as DogSpotLocationError,locationSnapshot as DogSpotLocationSnapshot,locationNotes as DogSpotLocationNotes} from "./dogspot-location.mjs?v='+digest+'";\n'+text
 
 # Complete the newer caregiver profiles in both fresh and already saved sessions.
 replace('extraCaregivers as DogSpotExtraCaregivers,', 'extraCaregivers as DogSpotExtraCaregivers,extraCaregiverReviews as DogSpotExtraCaregiverReviews,withExtraCaregiverReviews as DogSpotWithExtraCaregiverReviews,')
 replace('d.push(...DogSpotExtraCaregivers);', 'd.push(...DogSpotExtraCaregivers);f.push(...DogSpotExtraCaregiverReviews);')
 in_function('Mt', 't.reviews=Array.isArray(e.reviews)?t.reviews:[...f]', 't.reviews=DogSpotWithExtraCaregiverReviews(Array.isArray(e.reviews)?t.reviews:[...f])')
+
+# A single start button belongs to the service; tracking has no global demo bar.
+replace('renderDemoPanel as DogSpotRenderDemoPanel,', '')
+replace('function DogSpotCareDemoPanel(){return DogSpotRenderDemoPanel(l,M(),Ot)}', '')
+in_function('Sa', 'children:(0,j.jsxs)(j.Fragment,{children:[(0,j.jsx)(DogSpotCareDemoPanel,{}),(0,j.jsx)(Ca,{open:f})]})', 'children:(0,j.jsx)(Ca,{open:f})')
+
+# Both manual completion and the walkthrough enter this summary screen.
+# Unrated services open the existing rating form immediately; saved reviews stay closed.
+in_function('Zi', '[y,b]=(0,l.useState)(!1)', '[y,b]=(0,l.useState)(t.status===`finalizado`&&!m)')
+in_function('Zi', 'children:`Reactivar servicio de ejemplo`', 'children:`Volver a mi servicio`')
+in_function('Zi', 'onClick:()=>{u(),e(`home`)}', 'onClick:()=>e(`active`)')
 
 # Existing registration keeps its password protection and validation.
 in_function('Da', '{name:``,phone:``,email:``,pw:``}', '{name:``,phone:``,email:``,pw:``,district:``,neighborhood:``}')
