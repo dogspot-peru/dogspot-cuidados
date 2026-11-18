@@ -32,6 +32,17 @@ Solo si configuraste autenticación con clave en el webhook de Make, guarda tamb
 
 ## 3. Autorizar y actualizar la implementación
 
+Si el archivo `appsscript.json` contiene una lista explícita `oauthScopes`, conserva sus permisos actuales y añade el permiso de solicitudes externas. Para el manifiesto de DogSpot que ya contiene el acceso a Sheets, esa parte debe quedar así:
+
+```json
+"oauthScopes": [
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/script.external_request"
+],
+```
+
+Edita únicamente esa lista; conserva la zona horaria, las dependencias y la configuración de implementación existentes. El segundo permiso permite a Apps Script llamar al webhook de Make. Si no hay una lista explícita, Google puede detectar los permisos a partir del código. [Referencia oficial de UrlFetchApp](https://developers.google.com/apps-script/reference/url-fetch/url-fetch-app).
+
 1. Selecciona y ejecuta `dogspotMakeVerifySetup` en Apps Script. Autoriza los permisos de Google que requiere tu proyecto. La función solo comprueba la configuración; no envía un correo.
 2. En el registro de ejecución deben aparecer `webhookConfigured: true` y `automationSheetFound: true`.
 3. Ve a **Implementar → Gestionar implementaciones**.
