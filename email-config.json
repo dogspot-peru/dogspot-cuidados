@@ -5,5 +5,9 @@
   "welcomeTemplateId": "template_dogspot_reserva",
   "bookingTemplateId": "template_dogspot_reserva",
   "appUrl": "https://dogspot-peru.github.io/dogspot-cuidados/",
-  "supportEmail": "dogspot.peru@gmail.com"
+  "supportEmail": "dogspot.peru@gmail.com",
+  "makeRelay": {
+    "enabled": true,
+    "webAppUrl": "https://script.google.com/macros/s/AKfycbxdWqvJEzM9eWBVKzVKnWWzFfrvxGoBcnjrzoviTUYcfKHyWnnTDDdV5sIBY4H92R3N/exec"
+  }
 }

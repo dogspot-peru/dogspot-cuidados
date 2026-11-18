@@ -16,6 +16,10 @@ on:
       - 'maintenance/test-experience.mjs'
       - 'maintenance/apply-experience.py'
       - 'dogspot-runtime.mjs'
+      - 'dogspot-make.mjs'
+      - 'integration/DogSpotMake.gs'
+      - 'email-config.json'
+      - 'maintenance/test-make.mjs'
       - 'maintenance/*runtime*'
       - '.github/workflows/dogspot-runtime-validation.yml'
   pull_request:
@@ -33,6 +37,10 @@ on:
       - 'maintenance/test-experience.mjs'
       - 'maintenance/apply-experience.py'
       - 'dogspot-runtime.mjs'
+      - 'dogspot-make.mjs'
+      - 'integration/DogSpotMake.gs'
+      - 'email-config.json'
+      - 'maintenance/test-make.mjs'
       - 'maintenance/*runtime*'
       - '.github/workflows/dogspot-runtime-validation.yml'
 permissions:
@@ -55,6 +63,8 @@ jobs:
           subprocess.run(['node', '--input-type=module', '--check'], input=Path(name).read_text(encoding='utf-8'), text=True, check=True)
           PY
           node --check dogspot-runtime.mjs
+          node --check dogspot-make.mjs
+          node --check < integration/DogSpotMake.gs
           node --check dogspot-care-demo.mjs
           node --check dogspot-experience.mjs
           node --check dogspot-location.mjs
@@ -65,3 +75,4 @@ jobs:
           node --test maintenance/test-care-demo.mjs
           node --test maintenance/test-experience.mjs
           node --test maintenance/test-location.mjs
+          node --test maintenance/test-make.mjs

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>DogSpot · Conexión con Make</title>
+<style>body{font:16px/1.55 system-ui,sans-serif;background:#edf7ff;color:#20314f;margin:0;padding:32px 18px}main{max-width:650px;margin:auto;background:white;border:1px solid #d8e6ef;border-radius:24px;padding:28px}h1{font-size:26px;margin-top:0}button,a{font:inherit;font-weight:700}button{border:0;border-radius:14px;background:#65529a;color:white;padding:13px 18px;cursor:pointer}button:disabled{opacity:.6}#status{white-space:pre-line;background:#f3edff;padding:16px;border-radius:14px}a{color:#4d3d84}</style></head>
+<body><main><h1>DogSpot · Conexión con Make</h1><p>Comprueba si Apps Script está preparado para recibir los avisos de registro, reserva y finalización. Esta comprobación no envía correos.</p><button id="check">Comprobar conexión</button><p id="status" role="status">Pendiente de comprobar.</p><p><a href="./MAKE_CONEXION.md">Pasos para activar la conexión</a></p><p><a href="./">Volver a DogSpot</a></p></main>
+<script type="module">
+import {getMakeRelay} from './dogspot-make.mjs';
+const button=document.getElementById('check'),status=document.getElementById('status');
+button.onclick=async()=>{
+ button.disabled=true;status.textContent='Comprobando el puente de Apps Script…';
+ try{
+  const response=await fetch('./email-config.json',{cache:'no-store'});if(!response.ok)throw Error('config');
+  const config=await response.json(),relay=getMakeRelay(config),ready=relay&&await relay.connect();
+  status.textContent=ready?'Puente de Make preparado.\nActiva el escenario principal de Make. Después prueba un registro nuevo desde DogSpot y comprueba el correo y la fila en Automatizaciones.':'Todavía falta activar el puente en Apps Script.\nSigue los pasos de activación y actualiza la implementación existente. Mientras el puente no esté preparado, DogSpot conserva su envío anterior por EmailJS.';
+ }catch{status.textContent='No se pudo comprobar el puente. Revisa la implementación de Apps Script y vuelve a cargar esta página.';}
+ finally{button.disabled=false;}
+};
+</script></body></html>

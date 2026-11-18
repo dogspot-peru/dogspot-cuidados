@@ -29,7 +29,21 @@ digest = hashlib.sha256((root/'dogspot-location.mjs').read_bytes()).hexdigest()[
 experience_digest = hashlib.sha256((root/'dogspot-experience.mjs').read_bytes()).hexdigest()[:12]
 text = re.sub(r'(?<=dogspot-experience\.mjs\?v=)[a-f0-9]+', experience_digest, text)
 text = re.sub(r'(?<=dogspot-care-demo\.mjs\?v=)[a-f0-9]+', care_digest, text)
+make_digest = hashlib.sha256((root/'dogspot-make.mjs').read_bytes()).hexdigest()[:12]
+text = 'import {tryMakeReceipt as DogSpotTryMakeReceipt,makeReceiptMessage as DogSpotMakeReceiptMessage} from "./dogspot-make.mjs?v='+make_digest+'";\n'+text
 text = 'import {createLocationFeature as DogSpotCreateLocationFeature,areaError as DogSpotAreaError,areaFields as DogSpotAreaFields,profileAddress as DogSpotProfileAddress,locationError as DogSpotLocationError,locationSnapshot as DogSpotLocationSnapshot,locationNotes as DogSpotLocationNotes} from "./dogspot-location.mjs?v='+digest+'";\n'+text
+
+# The relay is exclusive after dispatch; no fallback can create a second email.
+in_function('ze', 'let r=Math.max(0,1100-(Date.now()-Ie));', 'const makeResult=await DogSpotTryMakeReceipt(e,n);if(makeResult){if(makeResult.status===`sent`)Pe.add(e.id);return makeResult;}let r=Math.max(0,1100-(Date.now()-Ie));')
+in_function('Ae', 'kind:`welcome`,to:', 'kind:`welcome`,customerId:e.id,to:')
+in_function('je', 'kind:`booking`,to:', 'kind:`booking`,customerId:e.id,to:')
+in_function('DogSpotCompletionReceipt', 'kind:`completion`,to:', 'kind:`completion`,customerId:e.id,to:')
+replace('i=Ae(r,`welcome:${crypto.randomUUID()}`)', 'i=Ae(r,`welcome:${r.id}`)')
+in_function('da', 'ua[e.status]', 'e.provider===`make`&&e.status===`sent`?`Correo enviado mediante Make`:ua[e.status]')
+for status in ['unavailable','failed','uncertain']:
+    in_function('da', 'e.status===`'+status+'`&&', 'e.status===`'+status+'`&&e.provider!==`make`&&')
+in_function('da', 'e.status!==`sent`&&e.status!==`sending`&&a&&', 'e.provider===`make`&&![`sent`,`sending`].includes(e.status)&&(0,j.jsx)(`p`,{className:`text-sm text-muted-foreground`,children:DogSpotMakeReceiptMessage(e)}),e.status!==`sent`&&e.status!==`sending`&&a&&')
+in_function('da', '` Intentar enviar correo`', 'e.provider===`make`?` Verificar envío`:` Intentar enviar correo`')
 
 # Complete the newer caregiver profiles in both fresh and already saved sessions.
 replace('extraCaregivers as DogSpotExtraCaregivers,', 'extraCaregivers as DogSpotExtraCaregivers,extraCaregiverReviews as DogSpotExtraCaregiverReviews,withExtraCaregiverReviews as DogSpotWithExtraCaregiverReviews,')
