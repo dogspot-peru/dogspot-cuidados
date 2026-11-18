@@ -61,14 +61,14 @@ test('client confirms only an acknowledgement for its exact event ID',async()=>{
 
 const gs=readFileSync(new URL('integration/DogSpotMake.gs',root),'utf8');
 function server(reply={status:200,body:null}){
-  const properties=new Map([['DOGSPOT_MAKE_WEBHOOK_URL','https://hook.us2.make.com/'+'a'.repeat(32)]]),cache=new Map(),calls=[];
+  const properties=new Map([['DOGSPOT_MAKE_WEBHOOK_URL','https://hook.us2.make.com/'+'a'.repeat(32)],['DOGSPOT_AUTOMATION_SPREADSHEET_ID','qa-spreadsheet']]),cache=new Map(),calls=[];
   let confirmedRow=null,locked=false;
   const props={getProperty:key=>properties.get(key)??null,getProperties:()=>Object.fromEntries(properties),setProperty:(key,value)=>properties.set(key,value),deleteProperty:key=>properties.delete(key)};
   const sheet={getLastRow:()=>confirmedRow?2:1,getRange:(row,col)=>col===1&&row===2?{
     createTextFinder:id=>({matchEntireCell:()=>({findNext:()=>confirmedRow?.[0]===id?{getRow:()=>2}:null})}),getDisplayValues:()=>[confirmedRow]
   }:{getDisplayValues:()=>[confirmedRow]}};
   const context=vm.createContext({console:{log(){}},PropertiesService:{getScriptProperties:()=>props},CacheService:{getScriptCache:()=>({get:key=>cache.get(key)??null,put:(key,value)=>cache.set(key,value)})},
-    SpreadsheetApp:{getActiveSpreadsheet:()=>({getSheetByName:()=>sheet})},LockService:{getScriptLock:()=>({tryLock:()=>{if(locked)return false;locked=true;return true;},releaseLock:()=>{locked=false;}})},
+    SpreadsheetApp:{getActiveSpreadsheet:()=>{throw Error('not available in web apps');},openById:id=>{assert.equal(id,'qa-spreadsheet');return {getSheetByName:()=>sheet};}},LockService:{getScriptLock:()=>({tryLock:()=>{if(locked)return false;locked=true;return true;},releaseLock:()=>{locked=false;}})},
     Utilities:{DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest:(algorithm,value)=>Array.from(createHash('sha256').update(value).digest())},
     UrlFetchApp:{fetch:(url,options)=>{calls.push({url,options});if(reply.throw)throw Error('offline');return {getResponseCode:()=>reply.status,getContentText:()=>reply.body??JSON.stringify({status:'sent',event_id:JSON.parse(options.payload).event_id})};}},
     HtmlService:{XFrameOptionsMode:{ALLOWALL:'all'},createHtmlOutput:html=>({html,setXFrameOptionsMode(){return this;}})}
@@ -82,6 +82,14 @@ test('relay posts the exact packet once, confirms a repeated event without resen
   assert.equal(service.send(packet).status,'sent');assert.equal(service.send(packet).status,'sent');assert.equal(service.calls.length,1);
   assert.deepEqual(JSON.parse(service.calls[0].options.payload),packet);assert.equal(service.calls[0].options.followRedirects,false);
   assert.equal(service.send({...packet,data:{...packet.data,to_email:'other@example.org'}}).status,'failed');assert.equal(service.calls.length,1);
+});
+
+test('missing spreadsheet configuration keeps the bridge unavailable and sends nothing',()=>{
+  const service=server();service.properties.delete('DOGSPOT_AUTOMATION_SPREADSHEET_ID');
+  assert.equal(service.send(makeEvent(receipt())).reason,'make-sheet');assert.equal(service.calls.length,0);
+  service.context.input={parameter:{origin:'https://dogspot-peru.github.io',nonce:'test-nonce-123456789',dogspot_make:'1'}};
+  const page=vm.runInContext('doGet(input)',service.context).html;
+  assert.match(page,/available:false/);
 });
 
 test('Accepted is pending; a later matching Gmail log confirms it without another webhook request',()=>{

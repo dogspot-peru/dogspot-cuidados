@@ -23,7 +23,8 @@ function dogspotMakeSettings_() {
 function dogspotMakeSheet_() {
   try{
     var id=PropertiesService.getScriptProperties().getProperty('DOGSPOT_AUTOMATION_SPREADSHEET_ID');
-    var spreadsheet=id?SpreadsheetApp.openById(id):SpreadsheetApp.getActiveSpreadsheet();
+    if(!id)return null;
+    var spreadsheet=SpreadsheetApp.openById(id);
     return spreadsheet?spreadsheet.getSheetByName('Automatizaciones'):null;
   }catch(error){return null;}
 }
@@ -74,6 +75,7 @@ function dogspotMakeStore_(key,result) {
 function dogspotMakeSend(value) {
   var packet;try{packet=dogspotMakePacket_(value);}catch(error){return {status:'failed',reason:'invalid-event'};}
   var settings=dogspotMakeSettings_();if(!settings)return {status:'unavailable',reason:'make-not-configured'};
+  if(!dogspotMakeSheet_())return {status:'unavailable',reason:'make-sheet'};
   var confirmed=dogspotMakeSentRow_(packet);if(confirmed)return confirmed;
   var identity=dogspotMakeDigest_(JSON.stringify([packet.type,packet.data.to_email,packet.data.customer_id,packet.data.booking_reference]));
   var properties=PropertiesService.getScriptProperties(),key=dogspotMakeCacheKey_(packet.event_id),lock=LockService.getScriptLock();
@@ -108,7 +110,7 @@ function dogspotMakeSend(value) {
 function dogspotMakePage_(e) {
   var origin='https://dogspot-peru.github.io',query=e.parameter||{},nonce=String(query.nonce||'');
   if(query.origin!==origin||!/^[\w-]{16,100}$/.test(nonce))return HtmlService.createHtmlOutput('DogSpot: solicitud inválida.');
-  var ready=!!dogspotMakeSettings_();
+  var ready=!!dogspotMakeSettings_()&&!!dogspotMakeSheet_();
   var html='<!doctype html><meta charset="utf-8"><title>DogSpot · Confirmaciones</title><script>(function(){'+
     'var origin='+JSON.stringify(origin)+',nonce='+JSON.stringify(nonce)+',channel="dogspot-make-v1";'+
     'function reply(requestId,result){window.top.postMessage({channel:channel,type:"result",nonce:nonce,requestId:requestId,result:result},origin);}'+

@@ -86,6 +86,7 @@ export function makeReceiptMessage(receipt) {
   if(reason==='make-queued')return 'Make recibió el aviso y lo dejó en cola. Activa el escenario de DogSpot y luego verifica el envío desde aquí.';
   if(reason==='make-claimed')return 'Este evento ya fue recibido. Revisa el historial de Make y tu correo; verificar de nuevo conserva el mismo identificador y no crea otro envío.';
   if(reason==='make-not-configured')return 'Falta guardar el webhook en las propiedades del proyecto de Apps Script.';
+  if(reason==='make-sheet')return 'Falta indicar la hoja de cálculo de Automatizaciones en las propiedades del proyecto de Apps Script.';
   if(reason==='quota'||reason==='queue-full')return 'Make alcanzó un límite temporal. Tu registro o servicio permanece guardado; puedes verificar el envío más tarde.';
   if(reason==='authorization')return 'Make rechazó la autorización del webhook. Revisa la conexión del escenario.';
   if(reason==='configuration'||reason==='invalid-event')return 'Make no pudo procesar los datos del aviso. Revisa la configuración del escenario.';

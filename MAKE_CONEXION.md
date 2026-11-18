@@ -6,22 +6,27 @@ La conexión usará la implementación de Apps Script que DogSpot ya emplea para
 
 ## 1. Añadir el puente al proyecto existente
 
-1. Abre el **mismo proyecto Apps Script que ya usa DogSpot** para Google Sheets. Conserva su código y su implementación actual.
-2. Busca la función existente `doGet`. Cambia únicamente su nombre a `dogspotSheetsDoGet`. Por ejemplo, `function doGet(e) {` pasa a `function dogspotSheetsDoGet(e) {`. Conserva todos sus parámetros y todo su contenido.
-3. Añade un archivo de código llamado **DogSpotMake** y pega el contenido completo de [integration/DogSpotMake.gs](integration/DogSpotMake.gs). Este archivo incorpora el nuevo `doGet`, que sigue atendiendo los registros anteriores y añade la conexión de correo.
+1. Abre en Google Sheets tu archivo **DOGSPOT – BASE DE DATOS DE CLIENTES 2026**, con la cuenta de Google que lo administra. En el menú superior pulsa **Extensiones → Apps Script**. Se abrirá el editor en otra pestaña. Si aparece un proyecto nuevo vacío o únicamente `myFunction`, detente: primero hay que localizar el proyecto existente que tiene la implementación de DogSpot.
+2. En la columna **Archivos**, a la izquierda del editor, abre el archivo que contiene el código actual; suele llamarse `Código.gs` o `Code.gs`. Haz clic dentro del código y usa **Ctrl + F** para buscar `doGet`. Cambia únicamente ese nombre a `dogspotSheetsDoGet`. Por ejemplo, `function doGet(e) {` pasa a `function dogspotSheetsDoGet(e) {`. Conserva los parámetros, las llaves y todo el contenido de la función. Si no aparece `doGet`, revisa los demás archivos existentes antes de modificar nada.
+3. En esa **misma pestaña de Apps Script**, pulsa el botón **+** junto a **Archivos**, selecciona **Secuencia de comandos** y escribe `DogSpotMake`. Google añadirá la extensión `.gs`. Abre [integration/DogSpotMake.gs en GitHub](https://github.com/dogspot-peru/dogspot-cuidados/blob/main/integration/DogSpotMake.gs), pulsa **Raw** para ver solo el código y cópialo completo. Regresa al archivo nuevo de Apps Script, sustituye únicamente su contenido inicial y pega el código copiado. Este archivo incorpora el nuevo `doGet`, que sigue atendiendo los registros anteriores y añade la conexión de correo.
 4. Guarda el proyecto.
 
 ## 2. Guardar el webhook en Google
 
-En **Configuración del proyecto → Propiedades de la secuencia de comandos**, añade:
+En Apps Script, pulsa el **engranaje de la barra izquierda**, llamado **Configuración del proyecto**. Baja hasta **Propiedades de la secuencia de comandos** y pulsa **Añadir propiedad de secuencia de comandos**. Cada fila tiene un campo de nombre y otro de valor. Crea estas dos filas:
 
 | Propiedad | Valor |
 |---|---|
 | `DOGSPOT_MAKE_WEBHOOK_URL` | El webhook completo de tu escenario de Make, el que comienza con `https://hook.us2.make.com/`. |
+| `DOGSPOT_AUTOMATION_SPREADSHEET_ID` | El identificador de tu archivo de Google Sheets, que contiene la pestaña **Automatizaciones**. Copia la parte de su URL situada entre `/d/` y `/edit`. |
 
 Guarda las propiedades. No pegues esa dirección en el código del repositorio.
 
-Si el proyecto es independiente y no está vinculado a la hoja de cálculo, añade también `DOGSPOT_AUTOMATION_SPREADSHEET_ID` con el identificador de la hoja que contiene **Automatizaciones**. En un proyecto vinculado a esa hoja, se detecta automáticamente.
+Guarda ambas propiedades incluso si abriste Apps Script desde la hoja. La conexión que usa la web necesita el identificador explícito para consultar los envíos confirmados.
+
+Para encontrar el identificador, vuelve a la pestaña de tu hoja y mira su dirección en el navegador. En una dirección como `https://docs.google.com/spreadsheets/d/IDENTIFICADOR/edit`, copia solo la parte `IDENTIFICADOR`, sin `/d/`, sin `/edit` y sin los parámetros posteriores. Esa parte es el valor de `DOGSPOT_AUTOMATION_SPREADSHEET_ID`.
+
+Pulsa **Guardar propiedades de la secuencia de comandos**. El código y los archivos se editan en el editor de Apps Script; estas dos filas se guardan en su configuración.
 
 Solo si configuraste autenticación con clave en el webhook de Make, guarda también esa clave en `DOGSPOT_MAKE_API_KEY`. No es necesario añadirla si tu webhook no utiliza esa autenticación.
 
