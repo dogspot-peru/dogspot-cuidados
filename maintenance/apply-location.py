@@ -30,6 +30,8 @@ experience_digest = hashlib.sha256((root/'dogspot-experience.mjs').read_bytes())
 text = re.sub(r'(?<=dogspot-experience\.mjs\?v=)[a-f0-9]+', experience_digest, text)
 text = re.sub(r'(?<=dogspot-care-demo\.mjs\?v=)[a-f0-9]+', care_digest, text)
 make_digest = hashlib.sha256((root/'dogspot-make.mjs').read_bytes()).hexdigest()[:12]
+onboarding_digest = hashlib.sha256((root/'dogspot-onboarding.mjs').read_bytes()).hexdigest()[:12]
+text = re.sub(r'(?<=dogspot-onboarding\.mjs\?v=)[a-f0-9]+', onboarding_digest, text)
 text = 'import {tryMakeReceipt as DogSpotTryMakeReceipt,makeReceiptMessage as DogSpotMakeReceiptMessage} from "./dogspot-make.mjs?v='+make_digest+'";\n'+text
 text = 'import {createLocationFeature as DogSpotCreateLocationFeature,areaError as DogSpotAreaError,areaFields as DogSpotAreaFields,profileAddress as DogSpotProfileAddress,locationError as DogSpotLocationError,locationSnapshot as DogSpotLocationSnapshot,locationNotes as DogSpotLocationNotes} from "./dogspot-location.mjs?v='+digest+'";\n'+text
 
@@ -67,6 +69,25 @@ in_function('Da', 'p=async t=>{if(t.preventDefault(),', 'p=async t=>{t.preventDe
 in_function('Da', 'e({name:n.name,email:n.email,phone:n.phone},t)', 'e({name:n.name,email:n.email,phone:n.phone,...DogSpotAreaFields(n)},t)')
 in_function('Da', '(0,j.jsx)(V,{label:`Correo`,', '(0,j.jsx)(DogSpotLocation.AreaFields,{value:n,onChange:r}),(0,j.jsx)(V,{label:`Correo`,')
 replace('g=(e,credential)=>{const registration=', 'g=(e,credential)=>{const locationProblem=DogSpotAreaError(e);if(locationProblem)throw new Error(locationProblem);e={...e,...DogSpotAreaFields(e)};const registration=')
+
+# Independent saved accounts on one shared phone. Keep password verification and
+# the original state key; archive other profiles without moving database rows.
+replace('registrationState as DogSpotRegistrationState}', 'registrationState as DogSpotRegistrationState,localAccount as DogSpotLocalAccount,accountBase as DogSpotAccountBase,saveAccountTransition as DogSpotSaveAccountTransition,receiptResultForAccount as DogSpotReceiptResultForAccount}')
+in_function('Ft', 'let r={...((t.user&&Oe(t.user.email)===Oe(e.email))?t.user:{}),...e,id:t.user&&Oe(t.user.email)===Oe(e.email)?t.user.id??crypto.randomUUID():crypto.randomUUID(),', 'const previous=DogSpotLocalAccount(t,e.email);let r={...(previous?.user??{}),...e,id:previous?.user?.id??crypto.randomUUID(),')
+in_function('Ft', 'n(e=>({...e,...registration,exploration:false,careDemo:null,assistantMessages:null,user:r,authCredential:credential,emailReceipts:i?[i,...e.emailReceipts]:e.emailReceipts,registrationEmailId:i?.id??null,screen:`registration-confirmation`}))', 'const base=DogSpotAccountBase(t,r,At,Mt),next={...base,...registration,exploration:false,careDemo:null,assistantMessages:null,user:r,authCredential:credential,emailReceipts:i?[i,...base.emailReceipts]:base.emailReceipts,registrationEmailId:i?.id??null,screen:`registration-confirmation`};DogSpotSaveAccountTransition(next,localStorage,jt);n(next)')
+in_function('Ft', 'n(n=>({...n,emailReceipts:n.emailReceipts.map(n=>n.id===e.id?{...n,...t,completedAt:new Date().toISOString()}:n)}))', 'n(current=>DogSpotReceiptResultForAccount(current,e,t))')
+in_function('Ft', 'pet:S,set:u,go:f,', 'pet:S,set:u,go:f,accountForEmail:email=>DogSpotLocalAccount(t,email),signInAccount:email=>{const saved=DogSpotLocalAccount(t,email);if(!saved)throw new Error(`Correo o contraseña incorrectos. Revisa tus datos.`);const next={...DogSpotAccountBase(t,saved.user,At,Mt),exploration:false,screen:`home`};DogSpotSaveAccountTransition(next,localStorage,jt);n(next);},')
+in_function('Ft', 'n({...At,exploration:!!t.exploration})', 'n({...At,localAccounts:t.localAccounts??{},exploration:!!t.exploration})')
+in_function('Ea', 'let{set:t,go:n,user:r,authCredential:credential}=M()', 'let{set:t,go:n,user:r,authCredential:credential,accountForEmail,signInAccount,enterExploration}=M()')
+in_function('Ea', 'El acceso y la contraseña se guardan en este navegador. También puedes explorar sin crear una cuenta.', 'Puedes crear varias cuentas en este navegador. Inicia sesión con el correo y la contraseña de la cuenta que quieras usar.')
+in_function('Ea', 'const email=Oe(i),localAccount=!!r&&Oe(r.email)!==wt;', 'const email=Oe(i),account=accountForEmail(email),localAccount=!!account;')
+in_function('Ea', 'if(localAccount&&email===Oe(r.email)&&!credential)', 'if(localAccount&&!account.authCredential)')
+in_function('Ea', 'const accepted=localAccount?email===Oe(r.email)&&await DogSpotVerifyCredential(o,credential):email===wt&&o===Tt;', 'const accepted=localAccount?await DogSpotVerifyCredential(o,account.authCredential):email===wt&&o===Tt;')
+in_function('Ea', '},{user:r,screen:`login`})', '},{user:account?.user??null,screen:`login`})')
+in_function('Ea', 't({user:r??{name:`Jefferson`,email:wt,phone:`987 654 321`},screen:`home`});', 'if(localAccount)signInAccount(email);else enterExploration();')
+in_function('Ea', 'catch{f(`No se pudo comprobar la contraseña. Vuelve a intentarlo desde el enlace HTTPS de DogSpot.`)}', 'catch(error){f(error instanceof Error?error.message:`No se pudo comprobar la contraseña. Vuelve a intentarlo desde el enlace HTTPS de DogSpot.`)}')
+in_function('Ka', 'let{user:e,set:t,go:n}=M()', 'let{user:e,set:t,go:n,accountForEmail}=M()')
+in_function('Ka', 'if(v&&c.trim()!==s)', 'if(v&&accountForEmail(r.email))return f(`Ese correo pertenece a otra cuenta guardada en este navegador. Usa otro correo o inicia sesión en esa cuenta.`);if(v&&c.trim()!==s)')
 
 # Existing accounts can complete or edit their zone without re-registering.
 in_function('Ka', 'references:e?.references??``,photo:e?.photo}', 'references:e?.references??``,photo:e?.photo,...DogSpotAreaFields(e)}')

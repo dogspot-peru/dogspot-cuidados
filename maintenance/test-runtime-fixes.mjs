@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {registrationState, migrateRegisteredPets} from '../dogspot-onboarding.mjs';
+import {registrationState, migrateRegisteredPets, localAccount, accountBase, saveAccountTransition, receiptResultForAccount} from '../dogspot-onboarding.mjs';
 import {webcrypto} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {prepareSavedState, verifyCredential, emailTemplateId, emailFailureReason, storedQueue} from '../dogspot-runtime.mjs';
@@ -34,7 +34,7 @@ await check('stored registration hash accepts only the correct password', async 
   assert.equal(await verifyCredential('Mascota123', null, webcrypto), false);
 });
 
-const aliases = {DogSpotWithExtraCaregiverReviews:withExtraCaregiverReviews,DogSpotUpgradeDemoPhotos:upgradeDemoPhotos,DogSpotValidDemo:validDemo,DogSpotRegistrationState: registrationState, DogSpotMigrateRegisteredPets: migrateRegisteredPets, DogSpotPrepareSavedState: prepareSavedState, DogSpotVerifyCredential: verifyCredential, DogSpotEmailTemplateId: emailTemplateId, DogSpotEmailFailureReason: emailFailureReason, DogSpotStoredQueue: storedQueue};
+const aliases = {DogSpotLocalAccount:localAccount,DogSpotAccountBase:accountBase,DogSpotSaveAccountTransition:saveAccountTransition,DogSpotReceiptResultForAccount:receiptResultForAccount,DogSpotWithExtraCaregiverReviews:withExtraCaregiverReviews,DogSpotUpgradeDemoPhotos:upgradeDemoPhotos,DogSpotValidDemo:validDemo,DogSpotRegistrationState: registrationState, DogSpotMigrateRegisteredPets: migrateRegisteredPets, DogSpotPrepareSavedState: prepareSavedState, DogSpotVerifyCredential: verifyCredential, DogSpotEmailTemplateId: emailTemplateId, DogSpotEmailFailureReason: emailFailureReason, DogSpotStoredQueue: storedQueue};
 const common = {crypto: webcrypto, Uint8Array, TextEncoder, URL, AbortController, Intl, setTimeout, clearTimeout, ...aliases,DogSpotAreaError:areaError,DogSpotAreaFields:areaFields,DogSpotProfileAddress:profileAddress,DogSpotLocationError:locationError,DogSpotLocationSnapshot:locationSnapshot,DogSpotLocationNotes:locationNotes};
 const restoreContext = vm.createContext({...common, f: [], m: array => array, Ot: () => [{id: 'meds', label: 'Medicamento', status: 'pendiente'}, {id: 'water', label: 'Agua', status: 'pendiente'}]});
 vm.runInContext(slice('function Ve(', 'var He='), restoreContext);
@@ -79,14 +79,17 @@ await check('old sessions receive both caregivers comments without losing or dup
 });
 
 const user = {id: 'customer-1', name: 'Cliente', email: 'cliente@example.org', phone: '000000000',district:'Trujillo',neighborhood:'Centro'};
-async function clickLogin(email, password, account = user, savedCredential = credential) {
+async function clickLogin(email, password, account = user, savedCredential = credential, localAccounts = {}) {
   const values = [email, password, false, '', false];
   let index = 0, patch = null, error = '';
   const context = vm.createContext({...common, wt: 'usuario@dogspot.pe', Tt: 'dogspot123', mi: '', Oe: value => value.trim().toLowerCase(),
     ui: 'ui', V: 'field', z: 'button', R: () => '', un: 'visible', dn: 'hidden',
     l: {useState: initial => {const position = index++; return [values[position] ?? initial, value => {values[position] = value; if (position === 3) error = value;}];}},
     j: {jsx: (type, props) => ({type, props}), jsxs: (type, props) => ({type, props})},
-    M: () => ({user: account, authCredential: savedCredential, set: value => {patch = value;}, go() {}}),
+    M: () => ({user: account, authCredential: savedCredential, set: value => {patch = value;}, go() {},
+      accountForEmail: email => localAccount({user:account,authCredential:savedCredential,localAccounts},email),
+      signInAccount: email => {const current={user:account,authCredential:savedCredential,localAccounts};const found=localAccount(current,email);patch={...accountBase(current,found.user,{}),screen:'home'};},
+      enterExploration:()=>{patch={user:null,authCredential:null,exploration:true,screen:'home'};}}),
     St: () => ({recordActivity() {}})
   });
   const component = slice('function Ea({open:e})', 'function Da()');
@@ -111,7 +114,10 @@ await check('login accepts the correct password with normalized email', async ()
   assert.equal(result.patch.user.id, user.id);
 });
 await check('example credentials do not open a registered local profile', async () => {
-  assert.equal((await clickLogin('usuario@dogspot.pe', 'dogspot123')).patch, null);
+  const result=await clickLogin('usuario@dogspot.pe', 'dogspot123');
+  assert.equal(result.patch.user,null);
+  assert.equal(result.patch.authCredential,null);
+  assert.equal(result.patch.exploration,true);
   assert.equal((await clickLogin('usuario@dogspot.pe', 'dogspot123', null, null)).patch.screen, 'home');
 });
 await check('old accounts without a verifiable password receive recovery guidance', async () => {
@@ -120,9 +126,9 @@ await check('old accounts without a verifiable password receive recovery guidanc
   assert.match(result.error, /registro anterior/);
 });
 
-function provider(initial) {
+function provider(initial, storage = {setItem() {}, removeItem() {}}) {
   let state = initial, count = 0, registration = null;
-  const context = vm.createContext({...common, At: initial, kt: {}, f: [], d: [], jt: 'state', Pt: {Provider: 'Provider'},
+  const context = vm.createContext({...common, localStorage:storage,Mt:value=>value,At: initial, kt: {}, f: [], d: [], jt: 'state', Pt: {Provider: 'Provider'},
     l: {useState: () => count++ === 0 ? [state, change => {state = typeof change === 'function' ? change(state) : change;}] : [false, () => {}], useRef: value => ({current: value}), useEffect() {}},
     j: {jsx: (type, props) => props.value},
     Oe: value => value.trim().toLowerCase(), Ae: () => null, je: () => null, Be: async () => ({status: 'unavailable'}),
@@ -240,5 +246,106 @@ await check('finished unrated services automatically open the existing star and 
   assert.equal(nodes(summary({...state,reviews:[{bookingId:'booking-a',caregiverId:'gabriel',rating:5,comment:'Guardada'}]})).find(node=>node.type==='dialog').props.open,false);
   assert.equal(nodes(summary({...state,active:{status:'activo'}})).find(node=>node.type==='dialog').props.open,false);
   assert.doesNotMatch(source,/DogSpotCareDemoPanel/);
+});
+const secondUser={id:'customer-2',name:'Otra persona',email:'otra@example.org',phone:'000000001',district:'Trujillo',neighborhood:'Centro'};
+const secondCredential=await vm.runInContext('Ye("OtraMascota456")',cryptoContext);
+const privateFirst={...defaults,user,authCredential:credential,pets:[{id:'first-pet',name:'Mascota primera',meds:''}],selectedPetId:'first-pet',
+  bookings:[{id:'first-booking',petId:'first-pet',status:'activo'}],currentBookingId:'first-booking',
+  tasks:[{id:'water',label:'Agua',status:'completada'}],messages:[{id:'first-message',text:'Mensaje de la primera cuenta'}],
+  notifications:[{id:'first-notice',text:'Aviso de la primera cuenta'}],reviews:[{id:'first-review',source:'session',comment:'Comentario propio'}],
+  emailReceipts:[{id:'welcome:customer-1',to:user.email,kind:'welcome',status:'sending'}],assistantMessages:[{text:'Consulta privada'}],
+  serviceSnapshots:{'other-service':{tasks:[{id:'private-task'}],messages:[]}},active:{status:'activo',rated:false}};
+let registeredSecond;
+await check('another email can register on the same phone without inheriting the first account data',()=>{
+  const saved=new Map(),p=provider(privateFirst,{setItem:(key,value)=>saved.set(key,value)});
+  p.api.registerUser({...secondUser,id:undefined},secondCredential);
+  const next=p.state();registeredSecond=next;
+  assert.equal(next.user.email,secondUser.email);
+  assert.notEqual(next.user.id,user.id);
+  for(const field of ['pets','bookings','tasks','messages','notifications','emailReceipts'])assert.equal(next[field].length,0,field);
+  assert.equal(next.reviews.some(review=>review.id==='first-review'),false);
+  assert.equal(next.assistantMessages,null);
+  assert.equal(Object.keys(next.serviceSnapshots).length,0);
+  const previous=localAccount(next,' CLIENTE@EXAMPLE.ORG ');
+  assert.equal(previous.user.id,user.id);
+  assert.equal(previous.pets[0].id,'first-pet');
+  assert.equal(previous.bookings[0].id,'first-booking');
+  assert.equal(previous.authCredential.derived,credential.derived);
+  assert.equal(previous.messages[0].id,'first-message');
+  assert.equal(previous.reviews[0].id,'first-review');
+  assert.equal(previous.localAccounts,undefined);
+  const persisted=JSON.parse(saved.get('state'));
+  assert.equal(persisted.user.email,secondUser.email);
+  assert.equal(persisted.localAccounts[user.email].pets[0].id,'first-pet');
+  assert.equal(JSON.stringify(persisted).includes('OtraMascota456'),false);
+  assert.equal(JSON.stringify(persisted).includes('Mascota123'),false);
+});
+await check('switching between saved accounts restores each identity and service history',()=>{
+  const restored=restore(JSON.parse(JSON.stringify(registeredSecond)));
+  const p=provider(restored);
+  p.api.signInAccount('CLIENTE@EXAMPLE.ORG');
+  const first=p.state();
+  assert.equal(first.user.id,user.id);
+  assert.equal(first.pets[0].id,'first-pet');
+  assert.equal(first.bookings[0].id,'first-booking');
+  assert.equal(first.authCredential.derived,credential.derived);
+  assert.equal(first.localAccounts[user.email],undefined);
+  assert.equal(localAccount(first,secondUser.email).user.id,registeredSecond.user.id);
+  const p2=provider(first);p2.api.signInAccount(secondUser.email);
+  assert.equal(p2.state().user.id,registeredSecond.user.id);
+  assert.equal(p2.state().pets.length,0);
+  assert.equal(p2.state().authCredential.derived,secondCredential.derived);
+  assert.equal(localAccount(p2.state(),user.email).bookings[0].id,'first-booking');
+});
+await check('archived account login verifies that account password rather than the active account password',async()=>{
+  const archive=registeredSecond.localAccounts;
+  const wrong=await clickLogin(user.email,'OtraMascota456',registeredSecond.user,secondCredential,archive);
+  assert.equal(wrong.patch,null);assert.match(wrong.error,/incorrectos/);
+  const correct=await clickLogin(' CLIENTE@EXAMPLE.ORG ','Mascota123',registeredSecond.user,secondCredential,archive);
+  assert.equal(correct.patch.user.id,user.id);
+  assert.equal(correct.patch.pets[0].id,'first-pet');
+  const unknown=await clickLogin('desconocido@example.org','OtraMascota456',registeredSecond.user,secondCredential,archive);
+  assert.equal(unknown.patch,null);assert.match(unknown.error,/incorrectos/);
+});
+await check('creating an account cannot replace the password of an existing active or archived email',()=>{
+  for(const current of [privateFirst,registeredSecond]){
+    const p=provider(current);
+    assert.throws(()=>p.api.registerUser({...user,email:' CLIENTE@EXAMPLE.ORG '},secondCredential),/ya está registrado/);
+    assert.equal(p.state(),current);assert.equal(p.registration(),null);
+    assert.equal(localAccount(p.state(),user.email).authCredential.derived,credential.derived);
+  }
+});
+await check('failed local persistence leaves the previous profile in place and sends no registration',()=>{
+  const blocked={setItem(){throw Error('quota');},removeItem(){}};
+  const p=provider(privateFirst,blocked);
+  assert.throws(()=>p.api.registerUser(secondUser,secondCredential),/cuenta anterior se conserva/);
+  assert.equal(p.state(),privateFirst);assert.equal(p.registration(),null);
+  const p2=provider(registeredSecond,blocked);
+  assert.throws(()=>p2.api.signInAccount(user.email),/cuenta anterior se conserva/);
+  assert.equal(p2.state(),registeredSecond);
+});
+await check('a late email result updates its archived owner without entering the other account inbox',()=>{
+  const receipt=privateFirst.emailReceipts[0];
+  const updated=receiptResultForAccount(registeredSecond,receipt,{status:'sent',provider:'make'});
+  assert.equal(updated.user.id,registeredSecond.user.id);
+  assert.equal(updated.emailReceipts.length,0);
+  assert.equal(localAccount(updated,user.email).emailReceipts[0].status,'sent');
+  assert.equal(localAccount(updated,user.email).authCredential.derived,credential.derived);
+  assert.equal(privateFirst.emailReceipts[0].status,'sending');
+  assert.equal(receiptResultForAccount(registeredSecond,{...receipt,to:'unknown@example.org'},{status:'sent'}),registeredSecond);
+});
+await check('exploration is not archived as a personal account and account storage stays flat',()=>{
+  const current={...privateFirst,user:{email:'usuario@dogspot.pe'},authCredential:null,exploration:true};
+  const next=accountBase(current,secondUser,defaults);
+  assert.equal(Object.keys(next.localAccounts).length,0);
+  assert.equal(next.pets.length,0);
+  const invalid={...registeredSecond,localAccounts:{bad:{user:null},[user.email]:{...privateFirst,localAccounts:{recursive:{user}}}}};
+  assert.equal(localAccount(invalid,'bad'),null);
+  assert.equal(localAccount(invalid,user.email).localAccounts,undefined);
+  assert.doesNotThrow(()=>JSON.stringify(accountBase(invalid,user,defaults)));
+});
+await check('profile email changes reject an address already used by another saved account',()=>{
+  const profile=slice('function Ka()', 'const DogSpotLocation=');
+  assert.match(profile,/if\(v&&accountForEmail\(r.email\)\)return f\(/);
 });
 console.log(`${checks.length} offline regression checks passed for ${name}.`);

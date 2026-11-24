@@ -16,6 +16,7 @@ on:
       - 'maintenance/test-experience.mjs'
       - 'maintenance/apply-experience.py'
       - 'dogspot-runtime.mjs'
+      - 'dogspot-onboarding.mjs'
       - 'dogspot-make.mjs'
       - 'integration/DogSpotMake.gs'
       - 'email-config.json'
@@ -37,6 +38,7 @@ on:
       - 'maintenance/test-experience.mjs'
       - 'maintenance/apply-experience.py'
       - 'dogspot-runtime.mjs'
+      - 'dogspot-onboarding.mjs'
       - 'dogspot-make.mjs'
       - 'integration/DogSpotMake.gs'
       - 'email-config.json'
@@ -63,6 +65,7 @@ jobs:
           subprocess.run(['node', '--input-type=module', '--check'], input=Path(name).read_text(encoding='utf-8'), text=True, check=True)
           PY
           node --check dogspot-runtime.mjs
+          node --check dogspot-onboarding.mjs
           node --check dogspot-make.mjs
           node --check < integration/DogSpotMake.gs
           node --check dogspot-care-demo.mjs
