@@ -1,8 +1,9 @@
-// Accelerated care walkthrough, isolated from personal accounts and their records.
+// Accelerated care walkthrough, started explicitly for one selected service.
 export const DEMO_INTERVAL_MS = 5000;
 export const EXPLORATION_KEY = 'dogspot-exploration-v1';
 const personal = state => !!state.user?.email && state.user.email.toLowerCase() !== 'usuario@dogspot.pe';
 export const isExploration = state => state.exploration === true || !personal(state);
+export const canDemo = state => isExploration(state) || !!(personal(state) && state.currentBookingId && state.bookings?.some(b=>b.id===state.currentBookingId));
 export const validDemo = (demo,tasks) => !!(demo && demo.version === 1 && typeof demo.runId === 'string' && Number.isInteger(demo.phase) && demo.phase >= 0 && demo.phase <= tasks.length*2 && Number.isFinite(Date.parse(demo.clockAt)) && tasks.length && tasks.every(t=>Number.isFinite(Date.parse(t.demoStartAt)) && Number.isFinite(Date.parse(t.demoEndAt))));
 const clock = iso => new Date(iso).toLocaleTimeString('es-PE', {timeZone:'America/Lima', hour:'2-digit', minute:'2-digit', hour12:true});
 const dateToday = () => new Intl.DateTimeFormat('en-CA', {timeZone:'America/Lima', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
@@ -25,8 +26,9 @@ function sessionsFor(booking) {
 }
 
 export function startDemo(state, template, now = Date.now()) {
-  if (!isExploration(state)) return {};
+  if (!canDemo(state)) return {};
   const booking = state.bookings.find(b => b.id === state.currentBookingId);
+  if (!isExploration(state) && (state.active?.status==='finalizado' || booking?.status==='finalizado' || state.tasks?.some(t=>t.status==='completada'&&!t.demoReference))) return {};
   const pet = booking?.petSnapshot ?? state.pets.find(p => p.id === (booking?.petId ?? state.selectedPetId));
   const hasMedication = !!pet?.meds?.trim() && !/^no aplica$/i.test(pet.meds.trim());
   const tasks = template.filter(t => t.id !== 'meds' || hasMedication);
@@ -40,7 +42,7 @@ export function startDemo(state, template, now = Date.now()) {
     demoEndAt:new Date(session.from + (session.to-session.from) * (index+1)/tasks.length).toISOString()
   })));
   const runId = `care-demo:${state.currentBookingId ?? 'initial'}:${now}`;
-  return {tasks:plan, careDemo:{version:1,runId,phase:0,running:true,nextAt:now+DEMO_INTERVAL_MS,clockAt:new Date(sessions[0].from).toISOString(),sessions,finished:false},
+  return {tasks:plan, careDemo:{version:1,runId,bookingId:state.currentBookingId??null,ownerId:state.user?.id??null,phase:0,running:true,nextAt:now+DEMO_INTERVAL_MS,clockAt:new Date(sessions[0].from).toISOString(),sessions,finished:false},
     active:{...state.active,status:'activo',rated:false,rating:undefined,comment:undefined},
     bookings:state.bookings.map(b => b.id === state.currentBookingId ? {...b,status:'activo',updatedAt:new Date(now).toISOString()} : b),
     messages:[], trackingTab:'estado',
@@ -52,6 +54,7 @@ export function referencePhoto(pet, task) {
   const species = (pet?.species ?? '').toLowerCase();
   const taskId = task?.baseId ?? task?.id?.split(':')[0];
   if (species.includes('perro') && Object.hasOwn(descriptions,taskId)) return `./luna-${taskId}-v2.jpg`;
+  if (species.includes('gato') && Object.hasOwn(descriptions,taskId)) return `./cat-${taskId}-demo.png`;
   return species.includes('gato') ? './cat-reference.png' : species.includes('conejo') ? './rabbit-reference.png' : /ave|pájaro|pajaro/.test(species) ? './bird-reference.png' : species.includes('perro') ? './luna-evidence-wZL0x3gy.jpg' : './other-reference.svg';
 }
 
@@ -73,7 +76,7 @@ export function upgradeDemoPhotos(state) {
 
 export function advanceDemo(state, now = Date.now(), force = false) {
   const demo = state.careDemo;
-  if (!isExploration(state) || !validDemo(demo,state.tasks) || demo.finished || state.active.status !== 'activo' || (!demo.running && !force) || (!force && now < demo.nextAt)) return {};
+  if (!canDemo(state) || !validDemo(demo,state.tasks) || (demo.bookingId!=null&&demo.bookingId!==state.currentBookingId) || (demo.ownerId!=null&&demo.ownerId!==state.user?.id) || demo.finished || state.active.status !== 'activo' || (!demo.running && !force) || (!force && now < demo.nextAt)) return {};
   const index = Math.floor(demo.phase/2);
   const task = state.tasks[index];
   if (!task) return {careDemo:{...demo,running:false,finished:true}};
@@ -96,3 +99,4 @@ export function advanceDemo(state, now = Date.now(), force = false) {
 
 // Compatibility for older integrations: controls now live only in the service.
 export function renderDemoPanel() { return null; }
+

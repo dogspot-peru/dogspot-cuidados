@@ -1,4 +1,4 @@
-import {isExploration,referencePhoto,validDemo,DEMO_INTERVAL_MS} from './dogspot-care-demo.mjs?v=99cd0e8fa12c';
+import {isExploration,canDemo,referencePhoto,validDemo,DEMO_INTERVAL_MS} from './dogspot-care-demo.mjs?v=registered-care-20261127';
 
 export const extraCaregivers = [
   {id:'mariana',name:'Mariana Salazar',initials:'MS',photo:'./caregiver-mariana.jpg',courses:['Bienestar y manejo respetuoso de mascotas','Acompañamiento de mascotas en recuperación'],experience:'3 años de experiencia declarada',bio:'Acompañamiento paciente a domicilio, con atención a la alimentación, el descanso y las indicaciones de cada familia.',specialties:['Rutinas de alimentación','Recuperación y reposo','Comunicación con el dueño'],approach:'Organiza cada visita según la ficha de la mascota y comparte el avance de las actividades con fotografías y observaciones claras.',training:'Perfil académico. Certificados y experiencia pendientes de verificación.',availability:{weekdays:[0,1,2,3,4,5,6],start:'07:00',end:'23:00'}},
@@ -107,7 +107,7 @@ export function createExperience(React,useState,caregivers,ui={}) {
       card([h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}},h('h2',{style:{margin:0,fontSize:22,fontWeight:900}},'Así va '+name),badge(state.active.status==='finalizado'?'Finalizado':state.active.status==='confirmado'?'Por iniciar':'En cuidado')),
         text('Actividad actual',{fontSize:11,textTransform:'uppercase',color:C.muted,marginTop:12}),h('h3',{style:{fontSize:18,fontWeight:900,margin:'3px 0 10px'}},model.title),
         visual&&h('button',{type:'button',onClick:()=>model.focus?.evidence&&onEvidence(model.focus.id),disabled:!model.focus?.evidence,style:{display:'block',width:'100%',padding:0,border:0,background:'transparent'}},h('img',{src:visual,alt:'Estado actual de '+name,style:{width:'100%',aspectRatio:'4/3',objectFit:'cover',borderRadius:17}})),
-        text(model.description),visual&&isExploration(state)&&text('Fotografía de referencia del recorrido académico',{fontSize:10,color:C.muted}),
+        text(model.description),visual&&(model.focus?.demoReference||isExploration(state))&&text('Fotografía de referencia del recorrido académico',{fontSize:10,color:C.muted}),
         text(model.focus?`Actualizado a las ${when(model.focus)} · ${caregiver.name}`:'Las actualizaciones aparecerán al iniciar el cuidado.',{fontSize:11,color:C.muted})]),
       h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},...model.indicators.map(({id,task})=>card([text(({feeding:'Alimentación',water:'Hidratación',meds:'Medicamento',rest:'Descanso'})[id],{fontWeight:900,margin:0}),text(stateLabel(task),{fontWeight:800,color:task.status==='completada'?'#22735e':C.muted}),task.time&&text(task.time,{fontSize:11,color:C.muted})],{padding:13}))),
       card([h('h3',{style:{fontSize:16,fontWeight:900,margin:0}},state.active.status==='finalizado'?'Reporte del cuidado':'Próximo cuidado'),text(state.active.status==='finalizado'?`${model.completed} actividades completadas. Revisa las fotografías y el resumen de la jornada.`:model.next?.label??'No quedan tareas pendientes.'),model.next?.demoStartAt&&text(new Date(model.next.demoStartAt).toLocaleTimeString('es-PE',{timeZone:'America/Lima',hour:'numeric',minute:'2-digit'}),{color:C.muted,fontSize:12}),btn(state.active.status==='finalizado'?'Ver resumen':'Ver todas las tareas',()=>state.active.status==='finalizado'?state.go('summary'):state.set({trackingTab:'cuidados'}))]),
@@ -131,8 +131,8 @@ export function createExperience(React,useState,caregivers,ui={}) {
   function Active({open}) {
     const state=useState(),caregiver=caregiverFor(state),booking=state.bookings.find(b=>b.id===state.currentBookingId),[showProfile,setShowProfile]=React.useState(false);
     const academic=isExploration(state),demo=validDemo(state.careDemo,state.tasks)?state.careDemo:null;
-    const paused=academic&&demo&&!demo.finished&&!demo.running&&state.active.status==='activo';
-    const canStart=state.active.status==='confirmado'||academic&&!demo;
+    const paused=canDemo(state)&&demo&&!demo.finished&&!demo.running&&state.active.status==='activo';
+    const canStart=canDemo(state)&&!demo&&state.active.status!=='finalizado'&&!state.tasks.some(task=>task.status==='completada'&&!task.demoReference);
     const start=()=>{
       if(paused)state.set(current=>({careDemo:{...current.careDemo,running:true,nextAt:Date.now()+DEMO_INTERVAL_MS},screen:'tracking',trackingTab:'estado'}));
       else {state.startService();state.set({screen:'tracking',trackingTab:'estado'});}
@@ -140,7 +140,8 @@ export function createExperience(React,useState,caregivers,ui={}) {
     return h('div',null,heading('Tu servicio',()=>state.go('home')),h('div',{style:stackStyle},
       ui.LocationSummary&&h(ui.LocationSummary),
       card([h('h2',{style:{fontSize:24,fontWeight:900,margin:0}},nameOf(state)),text('Cuidador: '+caregiver.name),text(booking?`${booking.date} · ${booking.start} – ${booking.end}`:'Horario inicial: 2:00 p. m. – 6:00 p. m.'),badge(state.active.status==='finalizado'?'Finalizado':state.active.status==='activo'?'En curso':'Confirmado')]),
-      (canStart||paused)&&btn(paused?'Demo inicial: continuar cuidado y seguimiento':academic?'Demo inicial: iniciar cuidado y seguimiento':'Iniciar cuidado y seguimiento',start,{background:C.aqua,color:'#fff'}),
+      (canStart||paused)&&btn(paused?'Demo inicial: continuar cuidado y seguimiento':'Demo inicial: iniciar cuidado y seguimiento',start,{background:'#8456c8',color:'#fff'}),
+      (canStart||paused||demo&&!demo.finished)&&text('Demostración con avances y fotos de referencia. Al terminar verás el resumen y podrás calificar el cuidado.',{fontSize:12,color:C.muted}),
       btn('Ver estado de '+nameOf(state),()=>state.set({screen:'tracking',trackingTab:'estado'}),{background:C.aqua,color:'#fff'}),
       btn('Historial y fotografías',()=>state.set({screen:'tracking',trackingTab:'actualizaciones'})),
       h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},btn('Mensaje a '+caregiver.name.split(' ')[0],()=>state.go('messages')),btn('Consultar a ABY',()=>state.go('assistant'))),
@@ -169,7 +170,7 @@ export function createExperience(React,useState,caregivers,ui={}) {
   }
 
   function Messages({open}) {
-    const state=useState(),caregiver=caregiverFor(state),[input,setInput]=React.useState(''),[typing,setTyping]=React.useState(false),timer=React.useRef(null),end=React.useRef(null),academic=isExploration(state);
+    const state=useState(),caregiver=caregiverFor(state),[input,setInput]=React.useState(''),[typing,setTyping]=React.useState(false),timer=React.useRef(null),end=React.useRef(null),academic=isExploration(state)||validDemo(state.careDemo,state.tasks);
     const messages=state.messages.filter(m=>m.from!=='ai');
     React.useEffect(()=>{end.current?.scrollIntoView({behavior:'smooth'});},[messages.length,typing]);
     React.useEffect(()=>()=>clearTimeout(timer.current),[]);
@@ -186,3 +187,4 @@ export function createExperience(React,useState,caregivers,ui={}) {
   }
   return {Tracking,Active,Assistant,Messages};
 }
+
