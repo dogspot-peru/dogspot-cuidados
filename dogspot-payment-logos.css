@@ -1,0 +1,45 @@
+.dogspot-payment-logo {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 60px;
+  padding: 8px;
+  box-sizing: border-box;
+  overflow: hidden;
+  vertical-align: middle;
+  border: 1px solid #e1e6ef;
+  border-radius: 12px;
+  background: #fff;
+}
+.dogspot-payment-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.dogspot-payment-logo--compact {
+  width: 80px;
+  height: 48px;
+  padding: 6px;
+}
+.dogspot-payment-logo[data-payment-method="Yape"] img,
+.dogspot-payment-logo[data-payment-method="Plin"] img {
+  max-width: 44px;
+}
+.dogspot-payment-logo--compact[data-payment-method="Yape"] img,
+.dogspot-payment-logo--compact[data-payment-method="Plin"] img {
+  max-width: 36px;
+}
+.dogspot-payment-detail {
+  margin-bottom: 10px;
+  text-align: center;
+}
+.dogspot-payment-label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
